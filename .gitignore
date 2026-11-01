@@ -11,5 +11,6 @@ trailer-assets/
 coverage/
 run.sh
 run_remote.sh
+docs/hosted-demo-plan.md
 
 __pycache__/
