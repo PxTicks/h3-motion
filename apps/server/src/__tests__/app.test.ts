@@ -42,7 +42,7 @@ function remoteJob(outputs: Uint8Array[], result: () => Promise<unknown> = async
 describe("session API and segmentation lifecycle", () => {
   it("reports offline ComfyUI without preventing photo upload", async () => {
     const { app, session } = await setup();
-    expect(await (await app.request("/api/health")).json()).toEqual({ server: "ok", comfy: "unavailable" });
+    expect(await (await app.request("/api/health")).json()).toEqual({ server: "ok", comfy: "unavailable", poll: true });
     expect(session.image).toMatchObject({ width: 2, height: 2 });
     expect((await app.request("/api/images", { method: "POST" })).status).toBe(401);
   });

@@ -117,6 +117,38 @@ ComfyUI runs natively on Windows. The app can run in either of two places:
   one checkout between WSL and Windows, because `npm install` fetches
   platform-specific packages.
 
+## Hosted deployment (not yet tested)
+
+To use a Comfy API deployment instead of local ComfyUI and the proxy, set these
+in `.env` (or your host's environment):
+
+```dotenv
+COMFY_BASE_URL=https://your-deployment.run.comfy.app
+COMFY_API_KEY=your-demo-workspace-key
+```
+
+The deployment must include the nodes and models listed above. `npm run dev`
+uses the remote URL directly, without starting a proxy or finding local
+ComfyUI. Credentials stay on the Node server. Generation, uploads, outputs and
+cold starts against a real deployment are **not yet tested**. The launcher and
+`check-env` still probe the local proxy's health endpoint, so they may report a
+deployment as unavailable; the app uses an authenticated asset lookup instead.
+Its connection badge checks once per page load for remote URLs until we verify
+that the check leaves a scaled-to-zero deployment asleep.
+
+For a production app, run `npm ci`, `npm run build`, then `npm start`. One
+server serves the built web app and `/api` on `127.0.0.1:8790` by default.
+Hosting can set `HOST=0.0.0.0` and `PORT=7860` to expose that server.
+
+For a short shared demo, set a long random `ACCESS_KEY` as a host secret and
+share `https://your-host/?key=<ACCESS_KEY>`. The server sets an HttpOnly,
+Secure, SameSite=Lax cookie and redirects to the URL without the key. Use
+HTTPS and open the direct app URL, since iframe cookie policies may prevent
+access. Without a valid key or cookie, the app and API return 404. Leaving
+`ACCESS_KEY` unset keeps local access open. Every response discourages indexing;
+`/robots.txt` is public and disallows all crawling. This is a shared demo link,
+not individual user accounts.
+
 ## License
 
 [AGPL-3.0](LICENSE), matching the vlo source workflows carried into this

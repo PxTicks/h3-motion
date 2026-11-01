@@ -12,7 +12,8 @@ import type { Comfy } from "@comfyorg/sdk";
 import { MAX_VIDEO_UPLOAD_BYTES, VIDEO_TIERS, animateRequestSchema, videoGeometry, inpaintFrames, inpaintRequestSchema, inpaintSize, isolateRequestSchema, referenceRequestSchema, segmentRequestSchema, selectionRequestSchema, trackRequestSchema } from "@h3-motion/shared";
 import type { AnimateRequest } from "@h3-motion/shared";
 import { comfy, checkComfyHealth } from "./comfy.js";
-import { REPO_ROOT } from "./config.js";
+import { REMOTE_COMFY, REPO_ROOT } from "./config.js";
+import { accessGate } from "./access.js";
 import { SessionStore, clearIsolation, isBusy } from "./sessions.js";
 import type { Session, StoredImage } from "./sessions.js";
 import { startSegment } from "./jobs/segment.js";
@@ -74,6 +75,7 @@ export function createApp(options: AppOptions = {}) {
   const store = options.store ?? new SessionStore();
   const client = options.client ?? comfy;
   const app = new Hono<AppEnvironment>();
+  app.use("*", accessGate());
 
   const photoLimit = bodyLimit({ maxSize: 20 * 1024 * 1024,
     onError: c => c.json({ error: "Photo is too large. Choose an image under 20 MB." }, 413) });
@@ -91,7 +93,7 @@ export function createApp(options: AppOptions = {}) {
     c.set("session", session);
     await next();
   });
-  app.get("/api/health", async c => c.json({ server: "ok", comfy: await (options.health ?? checkComfyHealth)() ? "ok" : "unavailable" }));
+  app.get("/api/health", async c => c.json({ server: "ok", comfy: await (options.health ?? checkComfyHealth)() ? "ok" : "unavailable", poll: !REMOTE_COMFY }));
   app.post("/api/sessions", c => {
     const id = getCookie(c, "h3m_session");
     const session = (id && store.sessions.get(id)) || store.create();

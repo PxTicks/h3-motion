@@ -98,4 +98,4 @@ export const selectionRequestSchema = z.object({
   imageId: idSchema, candidateIds: z.array(idSchema).min(1).max(16),
 });
 export const selectionResultSchema = z.object({ mask: imageAssetSchema });
-export const healthSchema = z.object({ server: z.literal("ok"), comfy: z.enum(["ok", "unavailable"]) });
+export const healthSchema = z.object({ server: z.literal("ok"), comfy: z.enum(["ok", "unavailable"]), poll: z.boolean().default(true) });

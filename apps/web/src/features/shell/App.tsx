@@ -60,17 +60,20 @@ export function App() {
 
   useEffect(() => {
     let disposed = false;
+    let timer: ReturnType<typeof globalThis.setTimeout> | undefined;
     sessionPromise ??= apiRequest("/sessions", { method: "POST" }).catch(error => { sessionPromise = undefined; throw error; });
     void sessionPromise.then(() => { if (!disposed) setReady(true); }).catch(error => { if (!disposed) setStartupError(error instanceof Error ? error.message : "Could not start a session."); });
     const health = async () => {
+      let poll = true;
       try {
         const data = healthSchema.parse(await apiRequest("/health"));
+        poll = data.poll;
         if (!disposed) setComfyAvailable(data.comfy === "ok");
       } catch { if (!disposed) setComfyAvailable(false); }
+      if (!disposed && poll) timer = globalThis.setTimeout(() => void health(), 15_000);
     };
     void health();
-    const timer = globalThis.setInterval(() => void health(), 15_000);
-    return () => { disposed = true; globalThis.clearInterval(timer); };
+    return () => { disposed = true; globalThis.clearTimeout(timer); };
   }, []);
 
   return <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 }, px: { xs: 2, md: 6 } }}>

@@ -59,7 +59,20 @@ npm run build             # tsc -b (including scripts), then Vite production bui
 npm start                 # serves the production app and API on 127.0.0.1:8790
 ```
 
-The app binds to localhost. Session state lives in server memory; uploads and
+The app binds to `127.0.0.1` by default. Set `HOST=0.0.0.0` when a hosting
+platform needs an external listener; `PORT` selects its port. `npm start`
+serves both the built app and the API. Hosted deployment use is **not yet
+tested**; see the [hosted setup](../README.md#hosted-deployment-not-yet-tested).
+Set `ACCESS_KEY` only for an HTTPS demo: `/?key=<ACCESS_KEY>` exchanges it for
+a secure session cookie, and all app/API paths otherwise return 404. Locally,
+leave it unset. `/robots.txt` stays public and all responses have
+`X-Robots-Tag: noindex, nofollow`.
+
+The badge checks remote Comfy connections with an authenticated asset lookup,
+once per page load. Local proxy health is still checked every 15 seconds.
+Whether the remote check leaves workers asleep needs live verification.
+
+Session state lives in server memory; uploads and
 mask files are saved under ignored `.data/`. Restarting the server expires all
 sessions. Old files are not yet pruned automatically; `.data/` can be removed
 after stopping the app. Reloading starts a new editing view; project persistence
