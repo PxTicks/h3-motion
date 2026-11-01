@@ -22,18 +22,19 @@ describe("Comfy connection health", () => {
     expect(cancel).toHaveBeenCalledOnce();
   });
 
-  it.each([200, 404])("accepts remote asset lookup status %i without submitting a job", async status => {
-    const { checkComfyHealth, fetch, cancel } = await setup("https://demo.run.comfy.app", status);
+  it("checks a deployment by listing one job, without submitting one", async () => {
+    const { checkComfyHealth, fetch, cancel } = await setup("https://demo.run.comfy.app", 200);
     expect(await checkComfyHealth()).toBe(true);
     expect(fetch).toHaveBeenCalledOnce();
-    expect(fetch.mock.calls[0]?.[0]).toBe(`https://demo.run.comfy.app/api/v2/assets/by-hash/blake3%3A${"0".repeat(64)}`);
+    expect(fetch.mock.calls[0]?.[0]).toBe("https://demo.run.comfy.app/api/v2/jobs?limit=1");
     const init = fetch.mock.calls[0]?.[1] as RequestInit;
-    expect(init.method).toBe("HEAD");
+    expect(init.method).toBe("GET");
     expect(new Headers(init.headers).get("Authorization")).toBe("Bearer workspace-test-key");
     expect(cancel).toHaveBeenCalledOnce();
   });
 
-  it.each([401, 403, 405, 500, 503])("reports remote status %i as unavailable", async status => {
+  // A mistyped deployment id answers 404 ("deployment not found"), a bad key 401.
+  it.each([401, 403, 404, 500, 503])("reports remote status %i as unavailable", async status => {
     const { checkComfyHealth } = await setup("https://demo.run.comfy.app", status);
     expect(await checkComfyHealth()).toBe(false);
   });

@@ -7,11 +7,11 @@ export const comfyLow = new ComfyLow(COMFY_BASE_URL, process.env.COMFY_API_KEY, 
 
 export async function checkComfyHealth(): Promise<boolean> {
   try {
-    const response = await comfyLow.request(REMOTE_COMFY ? "HEAD" : "GET", REMOTE_COMFY
-      ? `/api/v2/assets/by-hash/${encodeURIComponent(`blake3:${"0".repeat(64)}`)}`
-      : "/api/v2/health");
+    // Deployments have no health route. Listing one job is answered without a GPU worker, and unlike an asset
+    // lookup it tells a valid deployment (200) from a mistyped one (404) as well as from a bad key (401).
+    const response = await comfyLow.request("GET", REMOTE_COMFY ? "/api/v2/jobs?limit=1" : "/api/v2/health");
     await response.body?.cancel();
-    return REMOTE_COMFY ? [200, 404].includes(response.status) : response.ok;
+    return response.ok;
   } catch {
     return false;
   }
