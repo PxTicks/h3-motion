@@ -36,7 +36,7 @@ describe("hosted demo access", () => {
     expect(response.headers.get("Location")).toBe("/api/health?view=photo&view=video");
     const cookie = response.headers.get("Set-Cookie")!;
     expect(cookie).toContain("h3m_access=");
-    for (const attribute of ["HttpOnly", "Secure", "SameSite=Lax", "Path=/"]) expect(cookie).toContain(attribute);
+    for (const attribute of ["HttpOnly", "Secure", "SameSite=Lax", "Path=/", "Max-Age=1209600"]) expect(cookie).toContain(attribute);
     expect(response.headers.get("Referrer-Policy")).toBe("no-referrer");
     expect(response.headers.get("X-Robots-Tag")).toBe("noindex, nofollow");
     expect(health).not.toHaveBeenCalled();

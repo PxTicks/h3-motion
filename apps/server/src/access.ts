@@ -21,7 +21,8 @@ export function accessGate(key = process.env.ACCESS_KEY) {
     const url = new URL(c.req.url);
     if (url.searchParams.has("key")) {
       if (!matches(url.searchParams.get("key")!)) return c.text("Not Found", 404);
-      setCookie(c, "h3m_access", key!, { httpOnly: true, secure: true, sameSite: "Lax", path: "/" });
+      // Outlive browser restarts so judges can return without the original link.
+      setCookie(c, "h3m_access", key!, { httpOnly: true, secure: true, sameSite: "Lax", path: "/", maxAge: 14 * 24 * 60 * 60 });
       url.searchParams.delete("key");
       // Keep the redirect relative to this host, including for paths starting with //.
       return c.redirect(`/${url.pathname.replace(/^\/+/, "")}${url.search}`, 303);

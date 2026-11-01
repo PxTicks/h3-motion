@@ -63,14 +63,20 @@ export function App() {
     let timer: ReturnType<typeof globalThis.setTimeout> | undefined;
     sessionPromise ??= apiRequest("/sessions", { method: "POST" }).catch(error => { sessionPromise = undefined; throw error; });
     void sessionPromise.then(() => { if (!disposed) setReady(true); }).catch(error => { if (!disposed) setStartupError(error instanceof Error ? error.message : "Could not start a session."); });
+    let attempts = 0;
     const health = async () => {
       let poll = true;
+      let available = false;
       try {
         const data = healthSchema.parse(await apiRequest("/health"));
         poll = data.poll;
-        if (!disposed) setComfyAvailable(data.comfy === "ok");
-      } catch { if (!disposed) setComfyAvailable(false); }
-      if (!disposed && poll) timer = globalThis.setTimeout(() => void health(), 15_000);
+        available = data.comfy === "ok";
+      } catch { /* Reported as offline. */ }
+      if (disposed) return;
+      setComfyAvailable(available);
+      attempts += 1;
+      // Deployments are checked once per page load, but a failed check is retried in case the gateway was cold.
+      if (poll || (!available && attempts < 3)) timer = globalThis.setTimeout(() => void health(), 15_000);
     };
     void health();
     return () => { disposed = true; globalThis.clearTimeout(timer); };
