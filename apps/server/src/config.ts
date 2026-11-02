@@ -9,5 +9,5 @@ export const REMOTE_COMFY = !["localhost", "127.0.0.1"].includes(new URL(COMFY_B
 process.env.COMFY_BASE_URL = COMFY_BASE_URL;
 /** Splices the third-party Spectrum H3 speed-up into the animate graph. Off by default: judges would need the extra node pack. */
 export const SPECTRUM_ENABLED = process.env.H3M_SPECTRUM === "1";
-/** Both H3 workflows layer core sol-attn sparse attention over Comfy Kitchen attention; H3M_SOL=0 bypasses it. */
-export const SOL_ENABLED = process.env.H3M_SOL !== "0";
+/** Layers core sol-attn sparse attention over Comfy Kitchen attention in both H3 workflows. Off by default; H3M_SOL=1 enables it. */
+export const SOL_ENABLED = process.env.H3M_SOL === "1";

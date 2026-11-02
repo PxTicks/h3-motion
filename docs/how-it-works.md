@@ -15,10 +15,9 @@ with the shared H3 text encoder and VAEs. Both
 H3 workflows load the matching Pika Flex turbo LoRA (`pika_h3_flex_fl2va_v1` or
 `pika_h3_flex_ref2va_v1`) and sample six `lcm` steps on manual sigmas
 (1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0). Both use Comfy Kitchen
-INT8 attention, which needs an NVIDIA or AMD GPU. Core sol-attn sparse attention (`BlockSparseAttention`) is layered on top
-at the node's defaults: from 20% of sampling, long sequences run sparse and
-everything else falls back to Kitchen attention. Set `H3M_SOL=0` to turn it
-off; the node is upstream since September 2026. Set `H3M_SPECTRUM=1` to splice in the third-party
+INT8 attention, which needs an NVIDIA or AMD GPU. Set `H3M_SOL=1` to layer core sol-attn sparse attention
+(`BlockSparseAttention`, upstream since September 2026) on top at the node's defaults: from 20% of sampling,
+long sequences run sparse and everything else falls back to Kitchen attention. It is off by default. Set `H3M_SPECTRUM=1` to splice in the third-party
 [Spectrum H3](https://github.com/xmarre/ComfyUI-Spectrum-MiniMax-H3) speed-up;
 it is off by default; generation needs no other node pack.
 
