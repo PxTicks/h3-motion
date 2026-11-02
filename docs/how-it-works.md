@@ -69,8 +69,9 @@ and masked sampling. Important differences:
   mask with 10% padding, then positions and masks the generated patch in its editor.
 - The app has no prefill step. vlo uses `vloFillMaskedArea`, a pull-push fill that
   smoothly extrapolates surrounding colors, enabled by default at full denoise.
-- The app maps the mask with `nearest-exact` and a one-cell grid. vlo uses spatial
-  max coverage and snaps outward to two-cell (32-pixel) model tokens.
+- The app maps the mask with spatial max coverage and a one-cell grid, so every
+  16-pixel latent cell the mask touches is generated. vlo also uses max coverage,
+  but snaps outward to two-cell (32-pixel) model tokens.
 - The app feathers the pixel composite spatially with `ImageBlur`. It omits vlo's
   explicit latent blanking, seam-correction pass, and temporal mask-feather controls.
 

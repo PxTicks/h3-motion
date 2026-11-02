@@ -149,7 +149,7 @@
         0
       ],
       "pooling_method": "max",
-      "resize_mode": "nearest-exact",
+      "resize_mode": "max",
       "snap_grid": 1
     }
   },
