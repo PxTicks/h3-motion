@@ -22,7 +22,7 @@ export const MAX_SCALE = 4;
 const START_KEY_ID = "start";
 const ALPHA = 0.5;
 const RECORD_TIME_SCALE = 2;
-const RECORD_EPSILON = 4;
+const RECORD_EPSILON = 8;
 const RECORD_MOVE_EPSILON = 1;
 
 const distance = (a: Point, b: Point) => Math.hypot(b.x - a.x, b.y - a.y);
