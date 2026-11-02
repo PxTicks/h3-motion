@@ -54,9 +54,9 @@ Video inpainting uses the main masked-latent pass from `~/vlo`'s
 model and `vloMaskToLatentMask` from ComfyUI-vlo. There is one sampling pass;
 the seam-correction pass is omitted. Source pixels are resized onto the model
 canvas and VAE encoded without a prefill step. The browser grows the animated mask
-(24 px by default) before it drives both the latent mask and the composite. Generated
+(16 px by default) before it drives both the latent mask and the composite. Generated
 pixels are resized back and composited into the source through that mask, blurred
-by the feather radius (16 px by default).
+by the feather radius (12 px by default).
 
 Compared with vlo's reference-based inpainting workflow, this shares the ref2va
 model, source-video VAE encoding, a joint video/audio latent, `vloMaskToLatentMask`,

@@ -63,9 +63,9 @@ export function rebaseMask(motion: SubjectMotion<number>, from: Rect, to: Rect):
  */
 const MASK_EDGE = { min: 0, max: 32, step: 2 } as const;
 /** How far the drawn mask is grown before generation and compositing. */
-export const MASK_GROW = { ...MASK_EDGE, default: 24 } as const;
+export const MASK_GROW = { ...MASK_EDGE, default: 16 } as const;
 /** The blur radius softening the composite's edge: the patch fades in over this distance on each side of the grown edge. */
-export const MASK_FEATHER = { ...MASK_EDGE, default: 16 } as const;
+export const MASK_FEATHER = { ...MASK_EDGE, default: 12 } as const;
 /**
  * What happens to the source's sound: H3 hears it as `<Audio 1>` and generates new sound like it (`reference`), or
  * hears it and the delivered video keeps it unchanged (`preserve`); with `replace` it is left out of the source video,
