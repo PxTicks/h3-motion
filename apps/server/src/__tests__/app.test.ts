@@ -46,6 +46,22 @@ describe("session API and segmentation lifecycle", () => {
     expect(session.image).toMatchObject({ width: 2, height: 2 });
     expect((await app.request("/api/images", { method: "POST" })).status).toBe(401);
   });
+  it("refuses photos wider than 4:1 either way, which couldn't be delivered at 768p", async () => {
+    const { app, session, cookie } = await setup();
+    const upload = async (width: number, height: number) => {
+      const form = new FormData();
+      form.set("image", new File([new Uint8Array(await encodeMask(new Uint8Array(width * height), width, height))], "photo.png", { type: "image/png" }));
+      return app.request("/api/images", { method: "POST", headers: { cookie }, body: form });
+    };
+    for (const [width, height] of [[2400, 400], [400, 2400]]) {
+      const response = await upload(width, height);
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toBe("Choose a photo with an aspect ratio between 1:4 and 4:1.");
+    }
+    expect(session.image).toMatchObject({ width: 2, height: 2 });
+    expect((await upload(2560, 640)).status).toBe(201);
+    expect(session.image).toMatchObject({ width: 2560, height: 640 });
+  });
   it("does not serve another session's photo", async () => {
     const { app, session, cookie } = await setup();
     expect((await app.request(session.image!.url, { headers: { cookie } })).status).toBe(200);

@@ -26,6 +26,9 @@ export function pythonRound(value: number): number {
 
 /** The short edge every video is generated and delivered at: H3's native 768p. */
 export const VIDEO_TIER = 768;
+/** The widest ratio, either way, a photo or video may have: 4:1 is still delivered within the 4096 px limit at 768p. */
+export const MAX_ASPECT_RATIO = 4;
+export const supportedAspect = ({ width, height }: FrameSize) => width / height <= MAX_ASPECT_RATIO && height / width <= MAX_ASPECT_RATIO;
 /** The short edge SAM selects and tracks on: a 480p preparation of the source video, whatever it is delivered at. */
 export const TRACKING_TIER = 480;
 

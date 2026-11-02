@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CLIP_FRAMES, FPS, frameCountSchema, frameSizeSchema, h3Canvas, videoDimensionSchema, videoGeometry, pythonRound } from "../media.js";
+import { CLIP_FRAMES, FPS, MAX_ASPECT_RATIO, VIDEO_TIER, frameCountSchema, frameSizeSchema, h3Canvas, supportedAspect, videoDimensionSchema, videoGeometry, pythonRound } from "../media.js";
 
 describe("H3 media conventions", () => {
   it("uses the trained 17k+5 frame grid at 24 fps", () => {
@@ -41,5 +41,17 @@ describe("H3 media conventions", () => {
     expect(videoDimensionSchema.safeParse(853).success).toBe(false);
     expect(() => h3Canvas({ width: 1, height: 1 }, 0)).toThrow();
     expect(() => videoGeometry({ width: 0, height: 1 }, 480)).toThrow();
+  });
+  it("only accepts ratios up to 4:1 either way, all of which deliver within the size limit at 768p", () => {
+    for (const source of [{ width: 2560, height: 640 }, { width: 640, height: 2560 }, { width: 1000, height: 1000 }]) {
+      expect(supportedAspect(source)).toBe(true);
+      const { output } = videoGeometry(source, VIDEO_TIER);
+      expect(videoDimensionSchema.safeParse(output.width).success && videoDimensionSchema.safeParse(output.height).success).toBe(true);
+    }
+    expect(videoGeometry({ width: MAX_ASPECT_RATIO, height: 1 }, VIDEO_TIER).output).toEqual({ width: 3072, height: 768 });
+    // A 6:1 panorama would need a 4608 px wide video.
+    expect(supportedAspect({ width: 2400, height: 400 })).toBe(false);
+    expect(supportedAspect({ width: 400, height: 2400 })).toBe(false);
+    expect(supportedAspect({ width: 2561, height: 640 })).toBe(false);
   });
 });

@@ -9,7 +9,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { ZodError } from "zod";
 import sharp from "sharp";
 import type { Comfy } from "@comfyorg/sdk";
-import { MAX_VIDEO_UPLOAD_BYTES, TRACKING_TIER, VIDEO_TIER, animateRequestSchema, videoGeometry, inpaintFrames, inpaintRequestSchema, inpaintSize, isolateRequestSchema, referenceRequestSchema, segmentRequestSchema, selectionRequestSchema, trackRequestSchema } from "@h3-motion/shared";
+import { MAX_VIDEO_UPLOAD_BYTES, TRACKING_TIER, VIDEO_TIER, animateRequestSchema, supportedAspect, videoGeometry, inpaintFrames, inpaintRequestSchema, inpaintSize, isolateRequestSchema, referenceRequestSchema, segmentRequestSchema, selectionRequestSchema, trackRequestSchema } from "@h3-motion/shared";
 import type { AnimateRequest } from "@h3-motion/shared";
 import { comfy, checkComfyHealth } from "./comfy.js";
 import { REMOTE_COMFY, REPO_ROOT } from "./config.js";
@@ -119,6 +119,7 @@ export function createApp(options: AppOptions = {}) {
     } catch {
       throw new HTTPException(400, { message: "Use a PNG, JPEG or WebP photo with a working size no larger than 2560 pixels per side." });
     }
+    if (!supportedAspect({ width, height })) throw new HTTPException(400, { message: "Choose a photo with an aspect ratio between 1:4 and 4:1." });
     if (isBusy(session)) throw new HTTPException(409, { message: "A job is already running." });
     const saved = await store.savePng(session, png);
     if (isBusy(session)) throw new HTTPException(409, { message: "A job started while the photo was uploading. Wait for it to finish or cancel it before replacing the photo." });
@@ -138,7 +139,7 @@ export function createApp(options: AppOptions = {}) {
     const bytes = new Uint8Array(await file.arrayBuffer());
     const info = await inspectVideo(bytes).catch(() => { throw new HTTPException(400, { message: "Use an MP4 or WebM video." }); });
     if (!Number.isFinite(info.duration) || info.duration < 5 / 24 || info.frames < 5
-      || info.width / info.height < 0.25 || info.width / info.height > 4 || Math.max(info.width, info.height) > 7680) {
+      || !supportedAspect(info) || Math.max(info.width, info.height) > 7680) {
       throw new HTTPException(400, { message: "Choose a readable video at least 0.21 seconds long, with an aspect ratio between 1:4 and 4:1." });
     }
     if (isBusy(session)) throw new HTTPException(409, { message: "A job is already running." });

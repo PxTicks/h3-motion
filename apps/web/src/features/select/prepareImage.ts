@@ -1,9 +1,12 @@
+import { supportedAspect } from "@h3-motion/shared";
+
 /** Keep the whole photo and its native ratio within the server's working-image limit. */
 export async function prepareImage(file: File): Promise<Blob> {
   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) throw new Error("Choose a JPEG, PNG or WebP photo.");
   if (file.size > 20 * 1024 * 1024) throw new Error("Choose a photo under 20 MB.");
   const bitmap = await createImageBitmap(file);
   try {
+    if (!supportedAspect(bitmap)) throw new Error("Choose a photo with an aspect ratio between 1:4 and 4:1.");
     const scale = Math.min(1, 960 / Math.min(bitmap.width, bitmap.height), 2560 / Math.max(bitmap.width, bitmap.height));
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(bitmap.width * scale)); canvas.height = Math.max(1, Math.round(bitmap.height * scale));

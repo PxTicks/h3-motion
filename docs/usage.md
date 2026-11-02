@@ -25,7 +25,8 @@ animates them with MiniMax H3 and Time-to-Move, with sound.
 
 The photo canvas works while ComfyUI is offline; selecting a subject needs the
 GPU services. Images keep their native ratio, with no aspect-ratio picker
-or crop. Large photos are downscaled to a working short edge of at most 960 px
+or crop, so photos and videos must be between 1:4 and 4:1; anything wider
+couldn't be delivered at 768p. Large photos are downscaled to a working short edge of at most 960 px
 and a long edge of at most 2560 px; smaller photos are not enlarged. Replacing
 the photo or changing the selection clears the confirmed mask and background.
 After confirming, choose **Isolate**.

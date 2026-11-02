@@ -19,4 +19,12 @@ describe("photo preparation", () => {
     expect(drawImage).toHaveBeenCalledExactlyOnceWith(bitmap, 0, 0, workingWidth, workingHeight);
     expect(bitmap.close).toHaveBeenCalledOnce();
   });
+  it("rejects a panorama wider than 4:1 before drawing it", async () => {
+    const bitmap = { width: 2400, height: 400, close: vi.fn() }, createElement = vi.fn();
+    vi.stubGlobal("createImageBitmap", vi.fn(async () => bitmap));
+    vi.stubGlobal("document", { createElement });
+    await expect(prepareImage(new File(["photo"], "photo.jpg", { type: "image/jpeg" }))).rejects.toThrow("aspect ratio between 1:4 and 4:1");
+    expect(createElement).not.toHaveBeenCalled();
+    expect(bitmap.close).toHaveBeenCalledOnce();
+  });
 });
