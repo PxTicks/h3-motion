@@ -8,6 +8,7 @@ import { useSelectionStore } from "../select";
 import { useInpaintStore } from "../inpaint/useInpaintStore";
 
 export type Workflow = "upload" | "image" | "video";
+const VIDEO_EXAMPLE_PROMPT = "A tiny speck-sized dog is seen in a woman's hand, wagging its tail. She moves her hand across the screen and the dog becomes partially obscured.";
 const examples = [
   { kind: "image", url: exampleImage, thumbnail: exampleImage, name: "ufo-landing-pads.png", type: "image/png",
     label: "Try Image example", description: "A small UFO hovering over a wooden table with three toy landing pads" },
@@ -32,7 +33,12 @@ export function MediaUpload({ onUploaded }: { onUploaded(workflow: Workflow, exa
     setError(null);
     const kind = mediaKind(file);
     if (!kind) { setError("Choose a JPEG, PNG, WebP, MP4 or WebM file."); return; }
-    if (kind === "video") { if (await useInpaintStore.getState().upload(file)) onUploaded("video"); }
+    if (kind === "video") {
+      if (await useInpaintStore.getState().upload(file)) {
+        if (example) useInpaintStore.getState().setPrompt(VIDEO_EXAMPLE_PROMPT);
+        onUploaded("video", example);
+      }
+    }
     else {
       await useSelectionStore.getState().upload(file);
       if (useSelectionStore.getState().source === file) {

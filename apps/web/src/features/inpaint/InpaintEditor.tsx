@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { Alert, Box, Stack, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
 import { CLIP_FRAMES, FPS, MAX_SCALE, MAX_VIDEO_SECONDS, buildMotionCurve, isStartKey, placeRect, scaleOf, trackedBounds } from "@h3-motion/shared";
@@ -18,6 +18,7 @@ import { useGhosts } from "../motion/useGhosts";
 import { formatSeconds } from "../motion/format";
 import { SelectionCanvas, SelectionStoreContext } from "../select";
 import { useFollowSelection } from "./useFollowSelection";
+import { ExampleBackdrop, ExampleBubble } from "../../components/ExampleHint";
 
 /** Neutral, so the tracked object's bounds never read as one of the masks. */
 const TRACK_COLOR = "#f0efed";
@@ -45,7 +46,7 @@ function MaskShapeView({ shape, rect, color, scale, ghost = false, dim = false }
     : <rect x={rect.x} y={rect.y} width={rect.width} height={rect.height} {...style} />;
 }
 
-export function InpaintEditor({ onRemove }: { onRemove(): void }) {
+export function InpaintEditor({ onRemove, example = false }: { onRemove(): void; example?: boolean }) {
   const s = useInpaintStore();
   const showGhosts = useGhosts(state => state.show);
   const followFrame = useFollowSelection(state => state.image);
@@ -58,8 +59,11 @@ export function InpaintEditor({ onRemove }: { onRemove(): void }) {
   const [live, setLive] = useState<Point | null>(null);
   const [scale, setScale] = useState(1);
   const [hover, setHover] = useState<CanvasHover>(null);
+  const [hintDismissed, setHintDismissed] = useState(false);
+  const hintId = useId();
   const busy = s.status !== "idle";
   const showResult = s.view === "result" && !!s.result;
+  const showMaskHint = example && !hintDismissed && !!s.video && s.step === 0 && !s.masks.length && !busy && !s.playing && !s.picking;
   /** The first frame is shown for selecting the object to follow, in place of the video and its overlay. */
   const selecting = s.picking && !!followFrame;
   const curves = useMemo(() => new Map(s.masks.map(mask => [mask.id, buildMotionCurve(mask.motion)])), [s.masks]);
@@ -155,6 +159,7 @@ export function InpaintEditor({ onRemove }: { onRemove(): void }) {
   const handleAt = (point: Point) => box ? nearestHandle(box.bounds, box.anchor, box.pose, point, 9 * scale) : null;
 
   function startDrag(event: ReactPointerEvent<SVGSVGElement>, next: Drag) {
+    if (next.kind === "draw") setHintDismissed(true);
     drag.current = next;
     event.currentTarget.setPointerCapture(event.pointerId);
   }
@@ -288,8 +293,14 @@ export function InpaintEditor({ onRemove }: { onRemove(): void }) {
     .filter(rect => !current || rect.x !== current.x || rect.y !== current.y || rect.width !== current.width || rect.height !== current.height) : [];
   const cursor = step === 2 || busy || s.picking ? "default" : canvasCursor(drag.current, hover, step === 0 && s.masks.length < MAX_MASKS ? "crosshair" : "default");
   const tracked = step === 1 && s.track && !s.picking ? trackedBounds(s.track, playhead, frame) : null;
+  // Keep the bubble above the palm in the example's first frame, with its arrow over the hand as the video resizes.
+  const surfaceWidth = frame.width / scale;
+  const hintWidth = Math.min(420, Math.max(0, surfaceWidth - 24));
+  const palmX = surfaceWidth * .7;
+  const hintLeft = Math.max(12, Math.min(palmX - hintWidth / 2, surfaceWidth - hintWidth - 12));
 
   return <Stack spacing={2}>
+    {showMaskHint && <ExampleBackdrop />}
     {step === 2 && <ToggleButtonGroup exclusive size="small" value={showResult ? "result" : "preview"} aria-label="Preview" sx={{ alignSelf: "center" }}
       onChange={(_, value: unknown) => { if (value === "preview" || value === "result") { s.leave(); s.setView(value); } }}>
       <ToggleButton value="preview" sx={{ px: 2, py: .5, borderRadius: 99 }}>Source</ToggleButton>
@@ -303,7 +314,8 @@ export function InpaintEditor({ onRemove }: { onRemove(): void }) {
       : selecting ? <SelectionStoreContext.Provider value={useFollowSelection}>
         <Box sx={{ width: "100%", maxWidth: 680 * s.video.width / s.video.height, mx: "auto" }}><SelectionCanvas media="frame" /></Box>
       </SelectionStoreContext.Provider>
-      : <Box sx={{ position: "relative", width: "100%", maxWidth: 680 * s.video.width / s.video.height, mx: "auto", aspectRatio: `${s.video.width}/${s.video.height}`, bgcolor: "#19151f", borderRadius: 1, overflow: "hidden" }}>
+      : <Box sx={{ position: "relative", width: "100%", maxWidth: 680 * s.video.width / s.video.height, mx: "auto", aspectRatio: `${s.video.width}/${s.video.height}`, bgcolor: "#19151f", borderRadius: 1, overflow: "hidden",
+        ...(showMaskHint && { zIndex: theme => theme.zIndex.modal + 1, outline: "2px solid", outlineColor: "primary.main" }) }}>
         <video ref={video} key={s.video.id} src={s.video.url} muted playsInline preload="auto"
           onLoadedMetadata={() => {
             const state = useInpaintStore.getState();
@@ -312,6 +324,7 @@ export function InpaintEditor({ onRemove }: { onRemove(): void }) {
           onError={() => { useInpaintStore.setState({ error: "This browser can't preview this video. Try an H.264 MP4.", playing: false }); }}
           style={{ display: "block", width: "100%", height: "100%" }} />
         <svg ref={overlay} viewBox={`0 0 ${frame.width} ${frame.height}`} role={step === 2 ? "img" : "application"}
+          aria-describedby={showMaskHint ? hintId : undefined}
           aria-label={step === 0 ? "Mask editor. Drag to draw a mask, and again elsewhere to add another. Click a mask to select it, drag inside it to move it, drag its box corners and edges to resize it, or press Delete to remove it."
             : step === 1 ? "Mask animator. Click a mask to select it. Drag it to create or adjust its path. Clear its path to record again. Drag diamond keys to adjust positions. Drag the box corners to resize the mask, or its edges to stretch it."
             : "Mask preview showing where the video will be inpainted."}
@@ -330,7 +343,10 @@ export function InpaintEditor({ onRemove }: { onRemove(): void }) {
           {box && <ResizeBox {...box} color={color} scale={scale} />}
         </svg>
         {selected && motion && <KeyBadge keyframe={selected} anchor={motion.anchor} color={color} size={frame} />}
-        {step === 0 && !bounds && !draft && <CanvasHint>Drag to draw a mask.</CanvasHint>}
+        {showMaskHint && <ExampleBubble descriptionId={hintId} message="Drag to draw a mask over her hand, covering her palm."
+          onDismiss={() => setHintDismissed(true)} sx={{ bottom: "33%", left: hintLeft, width: hintWidth, pointerEvents: "none",
+            "&::before": { top: "auto", bottom: -6, left: Math.max(16, Math.min(palmX - hintLeft - 6, hintWidth - 28)) } }} />}
+        {step === 0 && !bounds && !draft && !showMaskHint && <CanvasHint>Drag to draw a mask.</CanvasHint>}
         {s.picking && <CanvasHint>Reading the first frame…</CanvasHint>}
         {showPath && motion.keys.length === 1 && <CanvasHint>{s.scrubbed ? `Drag to place a key at ${formatSeconds(playhead)}.` : "Drag to create a path."}</CanvasHint>}
         {s.recording && <RecordingBadge />}

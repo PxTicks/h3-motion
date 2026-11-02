@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   Accordion, AccordionDetails, AccordionSummary, Alert, Box, Button, ButtonBase, IconButton, LinearProgress, ListItemText, Menu, MenuItem, Slider, Stack, Step, StepButton, Stepper,
   TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography,
@@ -13,6 +13,7 @@ import { formatSeconds } from "../motion/format";
 import { SelectPanel, SelectionStoreContext } from "../select";
 import type { SelectPanelText } from "../select";
 import { useFollowSelection } from "./useFollowSelection";
+import { ExampleBackdrop, ExampleHint } from "../../components/ExampleHint";
 
 const INPAINT_STEPS = ["Draw masks", "Animate", "Generate"];
 const GROW_HELP = "How far the mask is widened on every side before generating. More room lets the new content blend into its surroundings, and covers edges of what you're replacing that stick out of the mask.";
@@ -29,7 +30,7 @@ const FOLLOW_TEXT: SelectPanelText = {
 };
 
 /** Selects the object to follow on the first frame, like the photo workflow's subjects, then tracks it. */
-function FollowPanel() {
+function FollowPanel({ example }: { example: boolean }) {
   const s = useInpaintStore();
   const selection = useFollowSelection();
   if (s.task === "frame") return <Stack spacing={1} aria-live="polite">
@@ -40,7 +41,8 @@ function FollowPanel() {
   return <SelectionStoreContext.Provider value={useFollowSelection}>
     <Stack spacing={2.5}>
       {selection.error && <Alert severity="error" onClose={selection.clearError}>{selection.error}</Alert>}
-      <SelectPanel text={FOLLOW_TEXT} onContinue={() => void s.followObject()} />
+      <SelectPanel text={FOLLOW_TEXT} onContinue={() => void s.followObject()} example={example}
+        exampleHint="Try typing 'hand' to find the object to track." />
       {selection.notice && <Typography role="status" variant="body2" color="text.secondary">{selection.notice}</Typography>}
       <Button disabled={selection.busy} onClick={s.stopPicking}>Back to the mask</Button>
     </Stack>
@@ -73,7 +75,7 @@ function MaskList({ disabled }: { disabled: boolean }) {
   </Stack>;
 }
 
-export function InpaintPanel() {
+export function InpaintPanel({ example = false }: { example?: boolean }) {
   const s = useInpaintStore();
   const followBusy = useFollowSelection(state => state.busy);
   const busy = s.status !== "idle" || followBusy;
@@ -82,6 +84,15 @@ export function InpaintPanel() {
   const audio = audioMode(s.video, s.audio), raw = s.promptMode === "raw";
   const [referenceUrl, setReferenceUrl] = useState<string | null>(null);
   const [menu, setMenu] = useState<HTMLElement | null>(null);
+  const [followHintDismissed, setFollowHintDismissed] = useState(false);
+  const [promptHintDismissed, setPromptHintDismissed] = useState(false);
+  const [generateHintDismissed, setGenerateHintDismissed] = useState(false);
+  const followHintId = useId();
+  const promptHintId = useId();
+  const generateHintId = useId();
+  const showFollowHint = example && !followHintDismissed && s.step === 1 && !s.picking && !busy && !s.recording && keyCount === 1;
+  const showPromptHint = example && !promptHintDismissed && s.step === 2 && !busy && !s.result && !raw && !!s.prompt.trim();
+  const showGenerateHint = example && !generateHintDismissed && s.step === 2 && !busy && !s.result && !!inpaintPrompt(s);
   const upload = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (!s.reference) { setReferenceUrl(null); return; }
@@ -94,6 +105,7 @@ export function InpaintPanel() {
     <Button onClick={() => void s.cancel()}>Cancel</Button>
   </Stack>;
   return <>
+    {(showPromptHint || showGenerateHint) && <ExampleBackdrop />}
     <Stepper activeStep={s.step} alternativeLabel sx={{ mb: 2, mx: -2, ".MuiStepLabel-label": { fontSize: 12 } }}>
       {INPAINT_STEPS.map((label, index) => <Step key={label}
         completed={index === 0 ? !!s.masks.length : index === 1 ? s.step === 2 || s.masks.some(mask => mask.motion.keys.length > 1) : !!s.result}>
@@ -113,7 +125,7 @@ export function InpaintPanel() {
       </ToggleButtonGroup>
       {s.masks.length > 0 && <MaskList disabled={busy} />}
       <Button variant="contained" size="large" disabled={!s.masks.length} onClick={() => s.visitStep(1)}>Continue →</Button>
-    </> : s.step === 1 && s.picking ? <FollowPanel /> : s.step === 1 ? <>
+    </> : s.step === 1 && s.picking ? <FollowPanel example={example} /> : s.step === 1 ? <>
       <Stack spacing={1}>
         <Typography variant="h2">{several ? "Drag them into motion" : "Drag it into motion"}</Typography>
         <Typography variant="body2" color="text.secondary">{several ? "Select a mask on the video or in the list to animate it. " : ""}Drag to create a path, or follow an object. Adjust by selecting and dragging ◆ on the video to fix positions, or on the timeline bar to fix timings.</Typography>
@@ -122,7 +134,14 @@ export function InpaintPanel() {
         <Typography variant="body2">{s.status === "preparing" ? "Preparing the video…" : s.status === "uploading" ? "Uploading…" : s.job?.message ?? "Tracking the object…"}</Typography>
         <LinearProgress variant={s.progress === null ? "indeterminate" : "determinate"} value={(s.progress ?? 0) * 100} />
         <Button onClick={() => void s.cancel()}>Cancel</Button>
-      </Stack> : <Button variant="outlined" disabled={busy || s.recording || keyCount > 1} onClick={() => void s.startPicking()}>Follow an object</Button>}
+      </Stack> : <ExampleHint active={showFollowHint} descriptionId={followHintId} reserveSpace pill
+        message="Click 'Follow an object' to make the mask follow her hand." onDismiss={() => setFollowHintDismissed(true)}>
+        <Button variant="outlined" fullWidth disabled={busy || s.recording || keyCount > 1}
+          aria-describedby={showFollowHint ? followHintId : undefined} onClick={() => {
+            setFollowHintDismissed(true);
+            void s.startPicking();
+          }}>Follow an object</Button>
+      </ExampleHint>}
       {several && <MaskList disabled={busy || s.recording} />}
       {s.notice && <Typography role="status" variant="body2" color="text.secondary">{s.notice}</Typography>}
       {s.motion && color && <SelectedKeyCard motion={s.motion} keyId={s.selectedKeyId} color={color} disabled={busy || s.recording}
@@ -179,9 +198,13 @@ export function InpaintPanel() {
       {raw ? <TextField label="Raw prompt" multiline minRows={12} value={s.rawPrompt} disabled={busy}
         onChange={event => s.setRawPrompt(event.target.value)} slotProps={{ htmlInput: { maxLength: 8000 } }}
         helperText="Sent as written, so changing the reference or original sound doesn't change it." />
-      : <TextField label="Main prompt" multiline minRows={6} value={s.prompt} disabled={busy}
-        onChange={event => s.setPrompt(event.target.value)} slotProps={{ htmlInput: { maxLength: 4000 } }}
-        helperText={s.referenceRole?.kind === "object" ? "Use <Subject 1> for your reference." : s.referenceRole ? "Describe the whole shot." : undefined} />}
+      : <ExampleHint active={showPromptHint} descriptionId={promptHintId} reserveSpace dim={false}
+        message="The example prompt is filled in." onDismiss={() => setPromptHintDismissed(true)}>
+        <TextField label="Main prompt" multiline minRows={6} fullWidth value={s.prompt} disabled={busy}
+          onChange={event => { setPromptHintDismissed(true); s.setPrompt(event.target.value); }}
+          slotProps={{ htmlInput: { maxLength: 4000, "aria-describedby": showPromptHint ? promptHintId : undefined } }}
+          helperText={s.referenceRole?.kind === "object" ? "Use <Subject 1> for your reference." : s.referenceRole ? "Describe the whole shot." : undefined} />
+      </ExampleHint>}
       {/* A preserved sound is the whole soundtrack, so there is no new sound to describe. */}
       {!raw && audio !== "preserve" && <>
         <TextField label="Sound effects [Optional]" multiline minRows={3} value={s.soundEffects} disabled={busy}
@@ -193,8 +216,15 @@ export function InpaintPanel() {
         <Typography variant="body2">{s.status === "preparing" ? "Preparing video and mask…" : s.status === "uploading" ? "Uploading…" : s.job?.message ?? "Inpainting…"}</Typography>
         <LinearProgress variant={s.progress === null ? "indeterminate" : "determinate"} value={(s.progress ?? 0) * 100} />
         <Button onClick={() => void s.cancel()}>Cancel</Button>
-      </Stack> : <Button variant="contained" size="large" fullWidth disabled={busy || !inpaintPrompt(s)} onClick={() => void s.generate()}
-        sx={{ minHeight: 56, fontFamily: "Barlow Condensed, sans-serif", fontSize: 22, letterSpacing: ".14em" }}>GENERATE</Button>}
+      </Stack> : <ExampleHint active={showGenerateHint} descriptionId={generateHintId} message="click me" reserveSpace pill dim={false}
+        onDismiss={() => setGenerateHintDismissed(true)}>
+        <Button variant="contained" size="large" fullWidth disabled={busy || !inpaintPrompt(s)}
+          aria-describedby={showGenerateHint ? generateHintId : undefined} onClick={() => {
+            setPromptHintDismissed(true);
+            setGenerateHintDismissed(true);
+            void s.generate();
+          }} sx={{ minHeight: 56, fontFamily: "Barlow Condensed, sans-serif", fontSize: 22, letterSpacing: ".14em" }}>GENERATE</Button>
+      </ExampleHint>}
       {s.notice && !busy && <Typography variant="body2" color="text.secondary" role="status">{s.notice}</Typography>}
       {s.result && <Stack spacing={1}>
         <Typography variant="overline" color="text.secondary">Output</Typography>

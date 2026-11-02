@@ -112,14 +112,14 @@ export function App() {
     </Box> : <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "minmax(0, 1fr) 360px" }, gap: 3, alignItems: "start",
       pointerEvents: ready ? "auto" : "none", opacity: ready ? 1 : .45 }} inert={!ready}>
       <Paper sx={{ p: { xs: 1.5, md: 2.5 }, overflow: "hidden" }}>
-        {workflow === "video" ? <InpaintEditor onRemove={removeUpload} /> : <>
+        {workflow === "video" ? <InpaintEditor onRemove={removeUpload} example={example} /> : <>
         {phase === 3 && isolation ? <GenerateStage /> : phase === 2 && isolation ? <MotionEditor example={example} />
           : phase > 0 && isolation ? <IsolatePreview />
           : <SelectionCanvas mediaAction={<RemoveMediaButton label="Remove image" disabled={busy} onRemove={removeUpload} />} />}
         </>}
       </Paper>
-      <Paper sx={{ p: 3 }}>
-        {workflow === "video" ? <InpaintPanel /> : <>
+      <Paper sx={{ p: 3, minWidth: 0 }}>
+        {workflow === "video" ? <InpaintPanel example={example} /> : <>
         <Stepper activeStep={phase} alternativeLabel sx={{ mb: 2, mx: -2, ".MuiStepLabel-label": { fontSize: 12 } }}>
           {IMAGE_STEPS.map((label, index) => <Step key={label} completed={index === 0 ? !!mask : index === 1 ? !!isolation : index === 2 ? moved : generated}>
             <StepButton disabled={busy || (index === 1 && !mask) || (index >= 2 && !isolation) || (index === 3 && !moved)}

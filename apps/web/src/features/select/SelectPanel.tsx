@@ -12,7 +12,9 @@ const MOVE_TEXT: SelectPanelText = {
 };
 
 /** Edits the selection in context. Continuing confirms it for the photo workflow, unless `onContinue` takes the ticked subjects. */
-export function SelectPanel({ text = MOVE_TEXT, onContinue, example = false }: { text?: SelectPanelText; onContinue?: () => void; example?: boolean }) {
+export function SelectPanel({ text = MOVE_TEXT, onContinue, example = false, exampleHint = "try typing 'ufo'" }: {
+  text?: SelectPanelText; onContinue?: () => void; example?: boolean; exampleHint?: string;
+}) {
   const useSelectionStore = useSelectionContext();
   const s = useSelectionStore();
   const [hintDismissed, setHintDismissed] = useState(false);
@@ -74,7 +76,7 @@ export function SelectPanel({ text = MOVE_TEXT, onContinue, example = false }: {
         <Typography variant="body2" color="text.secondary">{editing ? "Click to include more of this subject. Right-click to exclude. Other subjects stay in place." : text.hint}</Typography>
       </Stack>
       {!editing && <Stack component="form" spacing={1.5} onSubmit={event => { event.preventDefault(); void s.segment(); }}>
-        <ExampleHint active={showHint} descriptionId={hintId} message="try typing 'ufo'" onDismiss={() => setHintDismissed(true)}>
+        <ExampleHint active={showHint} descriptionId={hintId} message={exampleHint} onDismiss={() => setHintDismissed(true)}>
           <TextField label="Find subjects" placeholder="e.g. red car" value={s.text}
             onChange={event => { setHintDismissed(true); s.setText(event.target.value); }}
             disabled={!s.image || s.busy} inputProps={{ maxLength: 160, "aria-describedby": showHint ? hintId : undefined }} fullWidth />
