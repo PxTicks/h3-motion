@@ -34,12 +34,12 @@ describe("H3 media conventions", () => {
   });
   it("keeps arbitrary input ratios and only rounds delivery up for the encoder", () => {
     for (const source of [{ width: 1000, height: 701 }, { width: 701, height: 1000 }, { width: 1437, height: 1001 }]) {
-      const { output } = videoGeometry(source);
+      const { output } = videoGeometry(source, 480);
       expect(Math.min(output.width, output.height)).toBe(480);
       expect(Math.abs(output.width / output.height - source.width / source.height)).toBeLessThan(2 / 480);
     }
     expect(videoDimensionSchema.safeParse(853).success).toBe(false);
     expect(() => h3Canvas({ width: 1, height: 1 }, 0)).toThrow();
-    expect(() => videoGeometry({ width: 0, height: 1 })).toThrow();
+    expect(() => videoGeometry({ width: 0, height: 1 }, 480)).toThrow();
   });
 });

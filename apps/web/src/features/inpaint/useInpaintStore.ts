@@ -1,12 +1,12 @@
 import { create } from "zustand";
 import {
-  MASK_FEATHER, MASK_GROW, MAX_VIDEO_UPLOAD_BYTES, applyRecording, buildMotionCurve, composeInpaintPrompt, createMaskMotion, deleteKey, fitMask, followTrack, imageAssetSchema, inpaintFrames,
+  MASK_FEATHER, MASK_GROW, MAX_VIDEO_UPLOAD_BYTES, TRACKING_TIER, VIDEO_TIER, applyRecording, buildMotionCurve, composeInpaintPrompt, createMaskMotion, deleteKey, fitMask, followTrack, imageAssetSchema, inpaintFrames,
   inpaintSize, insertKeyAtLength, isStartKey, jobSnapshotSchema, lastFrame, maskBoxes, moveKey, parseInpaintPrompt, rebaseMask, referenceDefinition, retimeKey, upsertKey,
   videoAssetSchema,
 } from "@h3-motion/shared";
 import type {
   FrameSize, InpaintAudioMode, InpaintResult, JobSnapshot, MaskBox, MaskShape, Point, Pose, Rect, ReferenceRequest, ReferenceResult, ReferenceRole, Scale, SubjectMotion,
-  TimedSample, TrackResult, VideoAsset, VideoTier,
+  TimedSample, TrackResult, VideoAsset,
 } from "@h3-motion/shared";
 import { apiRequest, watchJob } from "../../api";
 import { renderInpaintVideos } from "./renderInpaint";
@@ -49,8 +49,6 @@ interface InpaintState {
   promptMode: PromptMode; rawPrompt: string;
   /** The raw prompt couldn't be split back into the fields when formatted mode was chosen. */
   unformattable: boolean;
-  /** The short edge of the delivered video. */
-  tier: VideoTier;
   /** How far the mask is grown, and how softly the patch is blended in, in delivered-video pixels. */
   grow: number; feather: number;
   /** What happens to the source's sound, when it has any; a source without sound is always `replace`d. */
@@ -110,7 +108,7 @@ interface InpaintState {
   setPromptMode(mode: PromptMode): void; setRawPrompt(rawPrompt: string): void;
   /** Drops the raw prompt and returns to the formatted prompt it started from. */
   resetPrompt(): void; keepRawPrompt(): void;
-  setTier(tier: VideoTier): void; setGrow(grow: number): void; setFeather(feather: number): void; setAudio(audio: InpaintAudioMode): void; setView(view: "preview" | "result"): void;
+  setGrow(grow: number): void; setFeather(feather: number): void; setAudio(audio: InpaintAudioMode): void; setView(view: "preview" | "result"): void;
   /** Uses an uploaded image as the reference, as an object; null removes the reference. */
   setReference(file: File | null): void; setDefinition(definition: string): void;
   openCreator(kind: "object" | "frame" | null): void; setReferenceText(text: string): void;
@@ -200,7 +198,7 @@ export const useInpaintStore = create<InpaintState>((set, get) => {
   return {
     source: null, video: null, frames: 124, uploading: false, step: 0, masks: [], activeMaskId: null, shape: "rectangle", bounds: null, motion: null,
     playhead: 0, playing: false, recording: false, scrubbed: false, selectedKeyId: null,
-    prompt: "", soundEffects: "", music: "", promptMode: "formatted", rawPrompt: "", unformattable: false, tier: 768, grow: MASK_GROW.default, feather: MASK_FEATHER.default, audio: "reference", reference: null, result: null, view: "preview", status: "idle", task: null, progress: null, job: null, error: null, notice: null,
+    prompt: "", soundEffects: "", music: "", promptMode: "formatted", rawPrompt: "", unformattable: false, grow: MASK_GROW.default, feather: MASK_FEATHER.default, audio: "reference", reference: null, result: null, view: "preview", status: "idle", task: null, progress: null, job: null, error: null, notice: null,
     picking: false, track: null, referenceRole: null, definition: "", creating: null, referenceText: "", created: null,
     upload: async file => {
       if (get().uploading || get().status !== "idle") return false;
@@ -373,7 +371,7 @@ export const useInpaintStore = create<InpaintState>((set, get) => {
       set({ task: "frame", status: "preparing", progress: null, job: null });
       try {
         // Selected on the frame the tracker sees, so the subjects' masks start it as they are.
-        const frame = await abortable(readFrame(source, 0, inpaintSize(video.width, video.height)), signal);
+        const frame = await abortable(readFrame(source, 0, inpaintSize(video.width, video.height, TRACKING_TIER)), signal);
         set({ status: "uploading" });
         const form = new FormData();
         form.set("videoId", video.id); form.set("image", frame, "frame.png");
@@ -400,7 +398,7 @@ export const useInpaintStore = create<InpaintState>((set, get) => {
       const { signal } = controller;
       set({ task: "track", status: "preparing", progress: 0, picking: false, playing: false, playhead: 0, selectedKeyId: null, error: null, notice: null, job: null });
       try {
-        const size = inpaintSize(video.width, video.height);
+        const size = inpaintSize(video.width, video.height, TRACKING_TIER);
         const prepared = await renderInpaintVideos({ source, frames, masks: null, size }, progress => set({ progress }), signal);
         signal.throwIfAborted();
         const form = new FormData();
@@ -435,7 +433,6 @@ export const useInpaintStore = create<InpaintState>((set, get) => {
     setRawPrompt: rawPrompt => { if (get().status === "idle") set({ rawPrompt, unformattable: false, ...edited }); },
     resetPrompt: () => { if (get().status === "idle") set({ promptMode: "formatted", unformattable: false, ...edited }); },
     keepRawPrompt: () => set({ unformattable: false }),
-    setTier: tier => { if (get().status === "idle") set({ tier, ...edited }); },
     setGrow: grow => { if (get().status === "idle") set({ grow: stepped(grow, MASK_GROW), ...edited }); },
     setFeather: feather => { if (get().status === "idle") set({ feather: stepped(feather, MASK_FEATHER), ...edited }); },
     setAudio: audio => { if (get().status === "idle") set({ audio, ...edited }); },
@@ -491,14 +488,14 @@ export const useInpaintStore = create<InpaintState>((set, get) => {
     },
     setView: view => set({ view }), clearError: () => set({ error: null }),
     generate: async () => {
-      const { source, video, frames, masks, tier, grow, feather, reference, status } = get();
+      const { source, video, frames, masks, grow, feather, reference, status } = get();
       const audio = audioMode(video, get().audio), text = inpaintPrompt(get());
       if (status !== "idle" || !source || !video || !masks.length || !text) return;
       controller = new AbortController();
       const { signal } = controller;
       set({ task: "inpaint", status: "preparing", progress: 0, picking: false, error: null, notice: null, job: null, playing: false });
       try {
-        const size = inpaintSize(video.width, video.height, tier);
+        const size = inpaintSize(video.width, video.height, VIDEO_TIER);
         // A replaced sound is left out of the source, so H3 never hears it.
         const videos = await renderInpaintVideos({ source, frames, masks: allBoxes(video), size, grow, audio: audio !== "replace" }, progress => set({ progress }), signal);
         signal.throwIfAborted();

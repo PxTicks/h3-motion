@@ -17,7 +17,7 @@ import type { ApiGraph } from "../workflows/templates.js";
 
 const roots: string[] = [];
 afterEach(async () => { vi.restoreAllMocks(); await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
-const fixture = (frames: 123 | 124) => readFile(new URL(`./fixtures/black-480-${frames}.mp4`, import.meta.url));
+const fixture = (frames: 123 | 124) => readFile(new URL(`./fixtures/black-768-${frames}.mp4`, import.meta.url));
 
 async function setup() {
   const root = await mkdtemp(join(tmpdir(), "h3m-animate-")); roots.push(root);
@@ -33,7 +33,7 @@ async function setup() {
   session.isolation = { imageId: session.image.id, maskId: session.selection.id, plate: { id: plate.id, url: plate.url, width: 2, height: 2 },
     phrase: "the brown dog", caption: DEFAULT_CAPTION, descriptionSource: "model", instructionSource: "model", instruction: "Remove it.", seed: 1 };
   const request: AnimateRequest = { imageId: session.image.id, maskId: session.selection.id, plateId: plate.id,
-    width: 480, height: 480, frames: 124, prompt: "A dog runs.", edgeFreedom: 16, seed: 7 };
+    width: 768, height: 768, frames: 124, prompt: "A dog runs.", edgeFreedom: 16, seed: 7 };
   return { app, client, session, cookie, request };
 }
 
@@ -44,7 +44,7 @@ async function upload(app: ReturnType<typeof createApp>, cookie: string, request
   const reference = files.reference ?? await fixture(124);
   form.set("reference", new File([new Uint8Array(reference)], "reference.mp4", { type: "video/mp4" }));
   form.set("mask", new File([new Uint8Array(files.mask ?? reference)], "mask.mp4", { type: "video/mp4" }));
-  const start = files.start ?? await sharp({ create: { width: 480, height: 480, channels: 3, background: "#000" } }).png().toBuffer();
+  const start = files.start ?? await sharp({ create: { width: 768, height: 768, channels: 3, background: "#000" } }).png().toBuffer();
   form.set("start", new File([new Uint8Array(start)], "start.png", { type: "image/png" }));
   return app.request("/api/jobs/animate", { method: "POST", headers: { cookie }, body: form });
 }
@@ -60,15 +60,15 @@ describe("animate job", () => {
   it("accepts an arbitrary photo ratio, generates on a strided canvas and delivers the restored dimensions", async () => {
     const { app, client, session, cookie, request } = await setup();
     session.image = { ...session.image!, width: 1000, height: 701 };
-    const video = new Uint8Array(await readFile(new URL("./fixtures/black-686x480-124.mp4", import.meta.url)));
+    const video = new Uint8Array(await readFile(new URL("./fixtures/black-1096x768-124.mp4", import.meta.url)));
     const submit = vi.spyOn(client, "submit").mockResolvedValue(remote(video));
-    const start = await sharp({ create: { width: 686, height: 480, channels: 3, background: "#000" } }).png().toBuffer();
-    expect((await upload(app, cookie, { ...request, width: 686 }, { reference: video, mask: video, start })).status).toBe(202);
+    const start = await sharp({ create: { width: 1096, height: 768, channels: 3, background: "#000" } }).png().toBuffer();
+    expect((await upload(app, cookie, { ...request, width: 1096 }, { reference: video, mask: video, start })).status).toBe(202);
     await session.job!.done;
     const graph = submit.mock.calls[0][0].json as ApiGraph;
-    expect(graph["14"].inputs).toMatchObject({ width: 672, height: 480 });
-    expect(graph["29"].inputs).toMatchObject({ width: 686, height: 480, crop: "disabled" });
-    expect(session.job!.snapshot).toMatchObject({ status: "completed", animation: { width: 686, height: 480 } });
+    expect(graph["14"].inputs).toMatchObject({ width: 1088, height: 768 });
+    expect(graph["29"].inputs).toMatchObject({ width: 1096, height: 768, crop: "disabled" });
+    expect(session.job!.snapshot).toMatchObject({ status: "completed", animation: { width: 1096, height: 768 } });
   });
   it("submits the request's settings, holds the path for TTM's first two steps, and serves the generated video with byte ranges", async () => {
     const { app, client, session, cookie, request } = await setup();
@@ -79,7 +79,7 @@ describe("animate job", () => {
     expect(response.status).toBe(202);
     await session.job!.done;
     const json = submit.mock.calls[0][0].json as ApiGraph;
-    expect(json[ANIMATE_BINDINGS.prompt.node].inputs).toMatchObject({ prompt: "A dog runs.", width: 480, height: 480, length: 124 });
+    expect(json[ANIMATE_BINDINGS.prompt.node].inputs).toMatchObject({ prompt: "A dog runs.", width: 768, height: 768, length: 124 });
     expect(json[ANIMATE_MODEL.ttm.node].inputs).toMatchObject({ start_step: 1, end_step: 2 });
     expect(String(json[TURBO_SIGMAS.animate.node].inputs.sigmas).split(",")).toHaveLength(7);
     expect(json[ANIMATE_BINDINGS.seed.node].inputs.noise_seed).toBe(7);
@@ -112,15 +112,15 @@ describe("animate job", () => {
     const submit = vi.spyOn(client, "submit");
     const response = await upload(app, cookie, request, { mask: new Uint8Array(await fixture(123)) });
     expect(response.status).toBe(400);
-    expect((await response.json()).error).toMatch(/mask video must be 480 × 480 with exactly 124 frames; it is 480 × 480 with 123/);
+    expect((await response.json()).error).toMatch(/mask video must be 768 × 768 with exactly 124 frames; it is 768 × 768 with 123/);
     expect(submit).not.toHaveBeenCalled();
   });
   it("rejects sizes the app can't produce, mismatched start frames and unreadable videos", async () => {
     const { app, cookie, request } = await setup();
     expect((await upload(app, cookie, { ...request, width: 512, height: 512 })).status).toBe(400);
-    expect((await upload(app, cookie, { ...request, width: 864, height: 480 })).status).toBe(400);
+    expect((await upload(app, cookie, { ...request, width: 480, height: 480 })).status).toBe(400);
     const small = await sharp({ create: { width: 32, height: 32, channels: 3, background: "#000" } }).png().toBuffer();
-    expect((await (await upload(app, cookie, request, { start: small })).json()).error).toMatch(/start frame must be a 480 × 480 PNG/);
+    expect((await (await upload(app, cookie, request, { start: small })).json()).error).toMatch(/start frame must be a 768 × 768 PNG/);
     expect((await (await upload(app, cookie, request, { reference: new Uint8Array([1, 2, 3]) })).json()).error).toMatch(/reference video can't be read/);
   });
   it("answers a request that isn't a form with a clear error", async () => {

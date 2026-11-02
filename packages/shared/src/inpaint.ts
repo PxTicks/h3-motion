@@ -20,7 +20,7 @@ export const videoAssetSchema = z.object({
 export type VideoAsset = z.infer<typeof videoAssetSchema>;
 
 /** The prepared and delivered size at `tier`'s short edge, keeping the source's ratio. */
-export function inpaintSize(width: number, height: number, tier = 480) {
+export function inpaintSize(width: number, height: number, tier: number) {
   return videoGeometry({ width, height }, tier).output;
 }
 export function inpaintFrames(duration: number) {

@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { Comfy } from "@comfyorg/sdk";
-import { videoGeometry } from "@h3-motion/shared";
+import { VIDEO_TIER, videoGeometry } from "@h3-motion/shared";
 import { ANIMATE_BINDINGS, ANIMATE_MODEL, ANIMATE_OUTPUT, assertBindings, buildAnimateWorkflow, buildDescribeWorkflow, buildIsolateWorkflow, buildSegmentWorkflow, DESCRIBE_BINDINGS, DESCRIBE_OUTPUTS, ISOLATE_BINDINGS, ISOLATE_OUTPUT, isolationGeometry, loadTemplate, samText, REFINE_BINDINGS, SEGMENT_BINDINGS, SEGMENT_OUTPUT } from "../templates.js";
 import type { ApiGraph } from "../templates.js";
 import { INPAINT_BINDINGS, INPAINT_MODEL, INPAINT_OUTPUT, buildInpaintWorkflow } from "../templates.js";
 
 describe("workflow contracts", () => {
   it("stretches all animation inputs onto one model canvas and restores the delivered ratio before encoding", async () => {
-    const { output: size, generation: modelSize } = videoGeometry({ width: 1000, height: 701 });
+    const { output: size, generation: modelSize } = videoGeometry({ width: 1000, height: 701 }, VIDEO_TIER);
     const graph = (await buildAnimateWorkflow(new Comfy(), { startPath: "/tmp/start.png", referencePath: "/tmp/reference.mp4",
       maskPath: "/tmp/mask.mp4", size, modelSize, frames: 124, prompt: "A bird flies.", edgeFreedom: 16, seed: 42 })).json as ApiGraph;
     expect(graph["14"].inputs).toMatchObject({ ...modelSize, first_frame: ["26", 0] });
@@ -21,7 +21,7 @@ describe("workflow contracts", () => {
     expect(graph[ANIMATE_OUTPUT].inputs.video).toEqual(["24", 0]);
   });
   it("restores inpainted pixels before compositing into the source at its original ratio", async () => {
-    const { output: size, generation: modelSize } = videoGeometry({ width: 701, height: 1000 });
+    const { output: size, generation: modelSize } = videoGeometry({ width: 701, height: 1000 }, VIDEO_TIER);
     const graph = (await buildInpaintWorkflow(new Comfy(), { sourcePath: "/tmp/source.mp4", maskPath: "/tmp/mask.mp4",
       size, modelSize, frames: 124, prompt: "A bird flies.", seed: 42, feather: 0, audio: "replace" })).json as ApiGraph;
     expect(graph["14"].inputs).toMatchObject(modelSize);

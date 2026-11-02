@@ -24,9 +24,10 @@ export function pythonRound(value: number): number {
   return diff === 0.5 ? (floor % 2 === 0 ? floor : floor + 1) : Math.round(value);
 }
 
-/** Short-edge resolutions offered for image animation: 480p, and H3's native 768p. */
-export const VIDEO_TIERS = [480, 768] as const;
-export type VideoTier = (typeof VIDEO_TIERS)[number];
+/** The short edge every video is generated and delivered at: H3's native 768p. */
+export const VIDEO_TIER = 768;
+/** The short edge SAM selects and tracks on: a 480p preparation of the source video, whatever it is delivered at. */
+export const TRACKING_TIER = 480;
 
 /** MiniMax H3's fixed canvas area cap, the 768 × 1344 training canvas, at every short edge. */
 export const H3_MAX_PIXELS = 768 * 1344;
@@ -36,7 +37,7 @@ export const H3_MAX_PIXELS = 768 * 1344;
  * edge at `tier`, the area capped at 768 × 1344, then each axis rounded to the model's 32 px grid. 16:9 gives
  * 1344 × 768, matching MiniMax's reference outputs, and 864 × 480; the cap never applies at 480p.
  */
-export function h3Canvas(source: FrameSize, tier = 480): FrameSize {
+export function h3Canvas(source: FrameSize, tier: number): FrameSize {
   if (![source.width, source.height, tier].every(v => Number.isFinite(v) && v > 0)) {
     throw new Error("Video dimensions and resolution must be positive.");
   }
@@ -48,7 +49,7 @@ export function h3Canvas(source: FrameSize, tier = 480): FrameSize {
 }
 
 /** Generate on H3's canonical canvas, then stretch back to the source ratio at the tier's short edge. */
-export function videoGeometry(source: FrameSize, tier = 480): { generation: FrameSize; output: FrameSize } {
+export function videoGeometry(source: FrameSize, tier: number): { generation: FrameSize; output: FrameSize } {
   const generation = h3Canvas(source, tier);
   const ratio = source.width / source.height;
   const width = ratio >= 1 ? Math.max(1, pythonRound(tier * ratio)) : tier;

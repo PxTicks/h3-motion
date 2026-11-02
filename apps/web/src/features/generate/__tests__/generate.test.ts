@@ -18,7 +18,7 @@ const isolation: IsolationResult = { imageId: image.id, maskId: mask.id, plate: 
   phrase: "the red ball", caption: { ...DEFAULT_CAPTION, subject: "the red ball", motion_verb: "rolls" }, instruction: "Remove it.",
   descriptionSource: "model", instructionSource: "model", seed: 1 };
 const layers = { width: 1728, height: 960 } as unknown as SubjectLayers;
-const settings = { tier: 480 as const, edgeFreedom: 16, prompt: null };
+const settings = { edgeFreedom: 16, prompt: null };
 const videos: MotionVideos = { reference: new Blob(), mask: new Blob(), start: new Blob(), container: "mp4" };
 const queued: JobSnapshot = { id: "73ec450b-4181-46f9-aa8b-fb07ff5e3b38", status: "queued", progress: null,
   message: "Preparing video generation…", candidates: [], error: null };
@@ -43,9 +43,8 @@ beforeEach(() => {
 describe("generation inputs", () => {
   it("builds the size and prompt from the current subject, caption and path", () => {
     const inputs = resolveInputs(currentParts(settings))!;
-    expect(inputs.size).toEqual({ width: 864, height: 480 });
+    expect(inputs.size).toEqual({ width: 1382, height: 768 });
     expect(inputs.prompt).toContain("the red ball in <Picture 1> rolls to the right across the frame");
-    expect(resolveInputs(currentParts({ ...settings, tier: 768 }))!.size).toEqual({ width: 1382, height: 768 });
   });
   it("changes its signature with anything that changes the video, and treats a blank prompt as automatic", () => {
     const base = resolveInputs(currentParts(settings))!;
@@ -79,11 +78,10 @@ describe("generation inputs", () => {
     store.setSoundEffects("Soft rolling sounds.");
     store.setMusic("Gentle piano.");
     store.setPromptMode("raw");
-    store.setTier(480);
     useSelectionStore.setState({ mask: null, isolation: null, phase: 0 });
     expect(useGenerateStore.getState()).toMatchObject({ prompt: "A ball rolls.", promptMode: "raw" });
     useSelectionStore.getState().setImage({ ...image, id: crypto.randomUUID(), url: "/api/files/other" });
-    expect(useGenerateStore.getState()).toMatchObject({ prompt: null, soundEffects: null, music: "", promptMode: "formatted", rawPrompt: "", tier: 480 });
+    expect(useGenerateStore.getState()).toMatchObject({ prompt: null, soundEffects: null, music: "", promptMode: "formatted", rawPrompt: "" });
   });
   it("waits for layers that belong to the current background", () => {
     useMotionStore.setState({ layersKey: "stale" });
@@ -215,11 +213,11 @@ describe("generate guards", () => {
     expect(useGenerateStore.getState().edgeFreedom).toBeNull();
   });
   it("sends less edge freedom for a small subject unless one is chosen", () => {
-    // The 1728 px photo is drawn at 864 × 480: 400 × 300 px becomes 200 × 150, room for two tokens and the full 16 px.
+    // The 1728 × 960 photo generates at 1376 × 768: 400 × 300 px becomes 319 × 240, room for two tokens and the full 16 px.
     useMotionStore.setState({ bounds: { x: 300, y: 400, width: 400, height: 300 } });
     expect(resolveInputs(currentParts({ ...settings, edgeFreedom: null }))!.edgeFreedom).toBe(16);
-    // 70 × 70 px holds one token at most, which 8 px still keeps.
-    useMotionStore.setState({ bounds: { x: 300, y: 400, width: 140, height: 140 } });
+    // 88 × 88 px becomes 70 × 70, which holds one token at most; 8 px still keeps it.
+    useMotionStore.setState({ bounds: { x: 300, y: 400, width: 88, height: 88 } });
     expect(resolveInputs(currentParts({ ...settings, edgeFreedom: null }))!).toMatchObject({ edgeFreedom: 8, autoEdgeFreedom: 8 });
     expect(resolveInputs(currentParts({ ...settings, edgeFreedom: 24 }))!).toMatchObject({ edgeFreedom: 24, autoEdgeFreedom: 8 });
   });

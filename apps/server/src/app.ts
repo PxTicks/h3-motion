@@ -9,7 +9,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { ZodError } from "zod";
 import sharp from "sharp";
 import type { Comfy } from "@comfyorg/sdk";
-import { MAX_VIDEO_UPLOAD_BYTES, VIDEO_TIERS, animateRequestSchema, videoGeometry, inpaintFrames, inpaintRequestSchema, inpaintSize, isolateRequestSchema, referenceRequestSchema, segmentRequestSchema, selectionRequestSchema, trackRequestSchema } from "@h3-motion/shared";
+import { MAX_VIDEO_UPLOAD_BYTES, TRACKING_TIER, VIDEO_TIER, animateRequestSchema, videoGeometry, inpaintFrames, inpaintRequestSchema, inpaintSize, isolateRequestSchema, referenceRequestSchema, segmentRequestSchema, selectionRequestSchema, trackRequestSchema } from "@h3-motion/shared";
 import type { AnimateRequest } from "@h3-motion/shared";
 import { comfy, checkComfyHealth } from "./comfy.js";
 import { REMOTE_COMFY, REPO_ROOT } from "./config.js";
@@ -158,7 +158,7 @@ export function createApp(options: AppOptions = {}) {
     if (!video || form.get("videoId") !== video.id) throw new HTTPException(409, { message: "The source video changed. Upload it again." });
     if (!(file instanceof File)) throw new HTTPException(400, { message: "The video frame is missing." });
     // The frame is selected on as the tracker sees it, so it must be the prepared video's size.
-    const size = inpaintSize(video.width, video.height);
+    const size = inpaintSize(video.width, video.height, TRACKING_TIER);
     const png = await sharp(new Uint8Array(await file.arrayBuffer()), { limitInputPixels: 8_000_000 }).removeAlpha().png().toBuffer({ resolveWithObject: true })
       .catch(() => { throw new HTTPException(400, { message: "The video frame must be a PNG." }); });
     if (png.info.width !== size.width || png.info.height !== size.height) {
@@ -230,10 +230,8 @@ export function createApp(options: AppOptions = {}) {
     if (!image || !selection || !isolation || image.id !== request.imageId || selection.id !== request.maskId || isolation.plate.id !== request.plateId) {
       throw new HTTPException(409, { message: "The subject or background changed. Isolate it again before generating." });
     }
-    if (!VIDEO_TIERS.some(tier => {
-      const size = videoGeometry(image, tier).output;
-      return size.width === request.width && size.height === request.height;
-    })) {
+    const size = videoGeometry(image, VIDEO_TIER).output;
+    if (size.width !== request.width || size.height !== request.height) {
       throw new HTTPException(400, { message: "The video size doesn't match the photo's aspect ratio. Reload and try again." });
     }
     const reference = await readVideoUpload(form.get("reference"), request, "reference");
@@ -260,11 +258,8 @@ export function createApp(options: AppOptions = {}) {
     const request = inpaintRequestSchema.parse(JSON.parse(String(form.get("request") ?? "")));
     const video = session.video;
     if (!video || video.id !== request.videoId) throw new HTTPException(409, { message: "The source video changed. Upload it again." });
-    const sized = VIDEO_TIERS.some(tier => {
-      const size = inpaintSize(video.width, video.height, tier);
-      return size.width === request.width && size.height === request.height;
-    });
-    if (!sized || request.frames !== inpaintFrames(video.duration)) {
+    const size = inpaintSize(video.width, video.height, VIDEO_TIER);
+    if (size.width !== request.width || size.height !== request.height || request.frames !== inpaintFrames(video.duration)) {
       throw new HTTPException(400, { message: "The prepared video doesn't match the source video." });
     }
     const source = await readVideoUpload(form.get("source"), request, "source");
@@ -301,7 +296,7 @@ export function createApp(options: AppOptions = {}) {
     const request = trackRequestSchema.parse(JSON.parse(String(form.get("request") ?? "")));
     const { video, frame } = session;
     if (!video || video.id !== request.videoId) throw new HTTPException(409, { message: "The source video changed. Upload it again." });
-    const size = inpaintSize(video.width, video.height);
+    const size = inpaintSize(video.width, video.height, TRACKING_TIER);
     if (request.width !== size.width || request.height !== size.height || request.frames !== inpaintFrames(video.duration)) {
       throw new HTTPException(400, { message: "The prepared video doesn't match the source video." });
     }

@@ -5,7 +5,6 @@ import type { AnimateRequest, AnimationResult, JobSnapshot } from "@h3-motion/sh
 import { apiRequest, watchJob } from "../../api";
 import { currentIsolation, useSelectionStore } from "../select";
 import { currentParts, resolveInputs } from "./inputs";
-import type { Tier } from "./inputs";
 import { renderMotionVideos } from "./renderMotion";
 import type { PromptMode } from "../shell/PromptModeToggle";
 
@@ -13,7 +12,6 @@ export type GenerateStatus = "idle" | "rendering" | "uploading" | "generating";
 export interface GeneratedVideo extends AnimationResult { signature: string }
 
 interface GenerateState {
-  tier: Tier;
   /** Null until the user picks one, so it follows the subject's size. */
   edgeFreedom: number | null; seed: string; prompt: string | null;
   soundEffects: string | null; music: string;
@@ -23,7 +21,7 @@ interface GenerateState {
   unformattable: boolean;
   status: GenerateStatus; progress: number | null; job: JobSnapshot | null;
   result: GeneratedVideo | null; view: "source" | "result"; error: string | null; notice: string | null;
-  setEdgeFreedom: (edgeFreedom: number | null) => void; setTier: (tier: Tier) => void; setSeed: (seed: string) => void;
+  setEdgeFreedom: (edgeFreedom: number | null) => void; setSeed: (seed: string) => void;
   /** null follows the generated main prompt or sound effects. */
   setPrompt: (prompt: string | null) => void;
   setSoundEffects: (soundEffects: string | null) => void; setMusic: (music: string) => void;
@@ -38,26 +36,25 @@ interface GenerateState {
 }
 
 /** The prompt settings `resolveInputs` reads; `rawPrompt` only in raw mode. */
-export function promptSettings({ tier, edgeFreedom, prompt, soundEffects, music, promptMode, rawPrompt }:
-  Pick<GenerateState, "tier" | "edgeFreedom" | "prompt" | "soundEffects" | "music" | "promptMode" | "rawPrompt">) {
-  return { tier, edgeFreedom, prompt, soundEffects, music, rawPrompt: promptMode === "raw" ? rawPrompt : null };
+export function promptSettings({ edgeFreedom, prompt, soundEffects, music, promptMode, rawPrompt }:
+  Pick<GenerateState, "edgeFreedom" | "prompt" | "soundEffects" | "music" | "promptMode" | "rawPrompt">) {
+  return { edgeFreedom, prompt, soundEffects, music, rawPrompt: promptMode === "raw" ? rawPrompt : null };
 }
 
 /** The current prompt settings, so every view resolves the same inputs, and signature, that `generate` sends. */
 export function usePromptSettings() {
-  return promptSettings(useGenerateStore(useShallow(({ tier, edgeFreedom, prompt, soundEffects, music, promptMode, rawPrompt }) =>
-    ({ tier, edgeFreedom, prompt, soundEffects, music, promptMode, rawPrompt }))));
+  return promptSettings(useGenerateStore(useShallow(({ edgeFreedom, prompt, soundEffects, music, promptMode, rawPrompt }) =>
+    ({ edgeFreedom, prompt, soundEffects, music, promptMode, rawPrompt }))));
 }
 
 const message = (error: unknown) => error instanceof Error ? error.message : "Something went wrong. Try again.";
 let controller: AbortController | null = null;
 
 export const useGenerateStore = create<GenerateState>((set, get) => ({
-  edgeFreedom: null, tier: 768, seed: "", prompt: null, soundEffects: null, music: "",
+  edgeFreedom: null, seed: "", prompt: null, soundEffects: null, music: "",
   promptMode: "formatted", rawPrompt: "", unformattable: false,
   status: "idle", progress: null, job: null, result: null, view: "source", error: null, notice: null,
   setEdgeFreedom: edgeFreedom => set({ edgeFreedom: edgeFreedom === null ? null : Math.min(EDGE_FREEDOM.max, Math.max(EDGE_FREEDOM.min, Math.round(edgeFreedom / EDGE_FREEDOM.step) * EDGE_FREEDOM.step)) }),
-  setTier: tier => set({ tier }),
   setSeed: seed => set({ seed }),
   setPrompt: prompt => set({ prompt }),
   setSoundEffects: soundEffects => set({ soundEffects }),

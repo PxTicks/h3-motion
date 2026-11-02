@@ -34,9 +34,9 @@ describe("inpainting geometry", () => {
     expect(fitMask({ x: -50, y: 450, width: 100, height: 100 }, size)).toEqual({ x: 0, y: 400, width: 100, height: 100 });
   });
   it("prepares source and mask at the delivered ratio before ComfyUI stretches them", () => {
-    expect(inpaintSize(1920, 1080)).toEqual({ width: 854, height: 480 });
-    expect(inpaintSize(1080, 1920)).toEqual({ width: 480, height: 854 });
-    expect(inpaintSize(400, 400)).toEqual({ width: 480, height: 480 });
+    expect(inpaintSize(1920, 1080, 480)).toEqual({ width: 854, height: 480 });
+    expect(inpaintSize(1080, 1920, 480)).toEqual({ width: 480, height: 854 });
+    expect(inpaintSize(400, 400, 480)).toEqual({ width: 480, height: 480 });
     expect(inpaintSize(1920, 1080, 768)).toEqual({ width: 1366, height: 768 });
     expect(inpaintSize(1080, 1920, 768)).toEqual({ width: 768, height: 1366 });
   });

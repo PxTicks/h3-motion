@@ -1,15 +1,14 @@
 import { useMemo } from "react";
-import { autoEdgeFreedom, buildH3PromptFields, composeH3Prompt, describeMotion, videoGeometry } from "@h3-motion/shared";
-import type { VideoTier, FrameSize, H3PromptFields, ImageAsset, IsolationResult, Rect, SubjectMotion } from "@h3-motion/shared";
+import { VIDEO_TIER, autoEdgeFreedom, buildH3PromptFields, composeH3Prompt, describeMotion, videoGeometry } from "@h3-motion/shared";
+import type { FrameSize, H3PromptFields, ImageAsset, IsolationResult, Rect, SubjectMotion } from "@h3-motion/shared";
 import { currentIsolation, useSelectionStore } from "../select";
 import { layersKeyOf, subjectKeyOf, useMotionStore } from "../motion";
 import type { MotionSubject, SubjectLayers } from "../motion";
 
-export type Tier = VideoTier;
 interface Parts {
   image: ImageAsset | null; mask: ImageAsset | null; isolation: IsolationResult | null;
   motion: SubjectMotion | null; subjectKey: string | null; bounds: Rect | null;
-  layers: SubjectLayers | null; layersKey: string | null; tier: Tier; prompt: string | null;
+  layers: SubjectLayers | null; layersKey: string | null; prompt: string | null;
   /** Null follows the subject's size: see autoEdgeFreedom. */
   edgeFreedom: number | null;
   subjects: MotionSubject[];
@@ -17,7 +16,7 @@ interface Parts {
   /** The whole prompt as written in raw mode, sent instead of the fields; null in formatted mode. */
   rawPrompt?: string | null;
 }
-type PromptSettings = Pick<Parts, "tier" | "edgeFreedom" | "prompt" | "soundEffects" | "music" | "rawPrompt">;
+type PromptSettings = Pick<Parts, "edgeFreedom" | "prompt" | "soundEffects" | "music" | "rawPrompt">;
 export interface GenerationInputs {
   image: ImageAsset; mask: ImageAsset; isolation: IsolationResult; motion: SubjectMotion; layers: SubjectLayers;
   size: FrameSize; autoPrompt: string; prompt: string;
@@ -34,7 +33,7 @@ export function resolveInputs(parts: Parts): GenerationInputs | null {
   const motion = subjects[0]?.motion ?? parts.motion;
   if (!image || !mask || !isolation || !motion || !layers || parts.subjectKey !== subjectKeyOf(image.id, mask.id)
     || parts.layersKey !== layersKeyOf(image.url, mask.url, isolation.plate.url)) return null;
-  const { output: size, generation } = videoGeometry(image, parts.tier);
+  const { output: size, generation } = videoGeometry(image, VIDEO_TIER);
   const held = subjects.length ? subjects.map(({ layers, motion }) => ({ bounds: layers.bounds, motion, mask: layers.mask && { data: layers.mask, width: layers.width } }))
     : [{ bounds: parts.bounds ?? layers.bounds, motion, mask: layers.mask && { data: layers.mask, width: layers.width } }].filter(subject => subject.bounds);
   const auto = autoEdgeFreedom(held, layers, generation), edgeFreedom = parts.edgeFreedom ?? auto;
@@ -70,7 +69,7 @@ export function useGenerationInputs(settings: PromptSettings & { rawPrompt: stri
   const bounds = useMotionStore(s => s.bounds);
   const layers = useMotionStore(s => s.layers);
   const layersKey = useMotionStore(s => s.layersKey);
-  const { tier, edgeFreedom, prompt, soundEffects, music, rawPrompt } = settings;
-  return useMemo(() => resolveInputs({ image, mask, isolation, motion, subjects, subjectKey, bounds, layers, layersKey, tier, edgeFreedom, prompt, soundEffects, music, rawPrompt }),
-    [image, mask, isolation, motion, subjects, subjectKey, bounds, layers, layersKey, tier, edgeFreedom, prompt, soundEffects, music, rawPrompt]);
+  const { edgeFreedom, prompt, soundEffects, music, rawPrompt } = settings;
+  return useMemo(() => resolveInputs({ image, mask, isolation, motion, subjects, subjectKey, bounds, layers, layersKey, edgeFreedom, prompt, soundEffects, music, rawPrompt }),
+    [image, mask, isolation, motion, subjects, subjectKey, bounds, layers, layersKey, edgeFreedom, prompt, soundEffects, music, rawPrompt]);
 }

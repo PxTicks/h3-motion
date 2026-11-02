@@ -49,10 +49,10 @@ describe("inpainting editor", () => {
   });
   it("clears prior mask animation, prompt and reference on a new source", async () => {
     selectSubject();
-    useInpaintStore.setState({ ...withMasks(mask(moving)), prompt: "Old prompt", soundEffects: "Old sounds", music: "Old music", tier: 480, reference: new File(["ref"], "ref.png"), step: 2, result });
+    useInpaintStore.setState({ ...withMasks(mask(moving)), prompt: "Old prompt", soundEffects: "Old sounds", music: "Old music", reference: new File(["ref"], "ref.png"), step: 2, result });
     vi.mocked(apiRequest).mockResolvedValue(video);
     expect(await state().upload(source)).toBe(true);
-    expect(state()).toMatchObject({ video, source, frames: 124, bounds: null, motion: null, prompt: "", soundEffects: "", music: "", tier: 480, reference: null, step: 0, result: null });
+    expect(state()).toMatchObject({ video, source, frames: 124, bounds: null, motion: null, prompt: "", soundEffects: "", music: "", reference: null, step: 0, result: null });
     expect(follow()).toMatchObject({ image: null, candidates: [] });
   });
   it("draws the first mask before animating, then keys moves at the playhead", () => {
@@ -242,9 +242,9 @@ describe("inpainting editor", () => {
     expect(form.get("reference")).toBe(reference);
     expect(state()).toMatchObject({ status: "idle", view: "result", result });
   });
-  it("prepares the chosen resolution and closes the prompt with the sound effects and music", async () => {
+  it("prepares the video at 768p and closes the prompt with the sound effects and music", async () => {
     useInpaintStore.setState({ source, video, ...withMasks(mask(moving)), prompt: "A bird flies.", step: 2 });
-    state().setTier(480); state().setSoundEffects(" Wings flapping. "); state().setMusic("Soft strings.");
+    state().setSoundEffects(" Wings flapping. "); state().setMusic("Soft strings.");
     state().setGrow(100); state().setFeather(9);
     expect(state()).toMatchObject({ grow: 32, feather: 10 });
     state().setFeather(100);
@@ -254,9 +254,9 @@ describe("inpainting editor", () => {
     vi.mocked(apiRequest).mockResolvedValue(queued);
     vi.mocked(watchJob).mockResolvedValue({ ...queued, status: "completed", inpainting: result });
     await state().generate();
-    expect(renderInpaintVideos).toHaveBeenCalledWith(expect.objectContaining({ size: { width: 854, height: 480 }, grow: 0 }), expect.any(Function), expect.any(AbortSignal));
+    expect(renderInpaintVideos).toHaveBeenCalledWith(expect.objectContaining({ size: { width: 1366, height: 768 }, grow: 0 }), expect.any(Function), expect.any(AbortSignal));
     const form = vi.mocked(apiRequest).mock.calls[0][1]!.body as FormData;
-    expect(JSON.parse(form.get("request") as string)).toEqual({ videoId: video.id, width: 854, height: 480, frames: 124, feather: 0, audio: "replace",
+    expect(JSON.parse(form.get("request") as string)).toEqual({ videoId: video.id, width: 1366, height: 768, frames: 124, feather: 0, audio: "replace",
       prompt: "A bird flies.\n\noverall_soundscape:\nWings flapping.\n\nnon_diegetic_music:\nSoft strings." });
   });
   it.each([["reference", true], ["preserve", true], ["replace", false]] as const)("keeps the sound in the source to %s it", async (audio, kept) => {

@@ -1,5 +1,5 @@
-import { Accordion, AccordionDetails, AccordionSummary, Alert, Box, Button, LinearProgress, Slider, Stack, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from "@mui/material";
-import { EDGE_FREEDOM, VIDEO_TIERS } from "@h3-motion/shared";
+import { Accordion, AccordionDetails, AccordionSummary, Alert, Box, Button, LinearProgress, Slider, Stack, TextField, Tooltip, Typography } from "@mui/material";
+import { EDGE_FREEDOM } from "@h3-motion/shared";
 import { useGenerationInputs } from "./inputs";
 import { useCurrentResult, useGenerateStore, usePromptSettings } from "./useGenerateStore";
 import { PromptModeToggle } from "../shell/PromptModeToggle";
@@ -8,7 +8,6 @@ const EDGE_FREEDOM_HELP = "How far inside its outline the subject is released fr
 
 export function GeneratePanel() {
   const edgeFreedom = useGenerateStore(s => s.edgeFreedom);
-  const tier = useGenerateStore(s => s.tier);
   const seed = useGenerateStore(s => s.seed);
   const prompt = useGenerateStore(s => s.prompt);
   const soundEffects = useGenerateStore(s => s.soundEffects);
@@ -21,7 +20,7 @@ export function GeneratePanel() {
   const job = useGenerateStore(s => s.job);
   const error = useGenerateStore(s => s.error);
   const notice = useGenerateStore(s => s.notice);
-  const { setEdgeFreedom, setTier, setSeed, setPrompt, setSoundEffects, setMusic, setPromptMode, setRawPrompt, resetPrompt, keepRawPrompt,
+  const { setEdgeFreedom, setSeed, setPrompt, setSoundEffects, setMusic, setPromptMode, setRawPrompt, resetPrompt, keepRawPrompt,
     generate, cancel, clearError } = useGenerateStore.getState();
   const inputs = useGenerationInputs(usePromptSettings());
   const result = useCurrentResult();
@@ -45,13 +44,6 @@ export function GeneratePanel() {
       <TextField multiline minRows={3} label="Music [Optional]" value={music} disabled={busy || !inputs}
         onChange={event => setMusic(event.target.value)} slotProps={{ htmlInput: { maxLength: 250 } }} />
     </>}
-    <Stack spacing={1}>
-      <Typography variant="caption" color="text.secondary">Resolution</Typography>
-      <ToggleButtonGroup exclusive size="small" value={tier} disabled={busy} aria-label="Resolution"
-        onChange={(_, value: unknown) => { const next = VIDEO_TIERS.find(option => option === value); if (next) setTier(next); }}>
-        {VIDEO_TIERS.map(value => <ToggleButton key={value} value={value} sx={{ px: 1.5, py: .5, borderRadius: 99 }}>{value}p</ToggleButton>)}
-      </ToggleButtonGroup>
-    </Stack>
     {busy ? <Stack spacing={1} aria-live="polite">
       <Typography variant="body2">{statusText}</Typography>
       <LinearProgress variant={progress == null ? "indeterminate" : "determinate"} value={(progress ?? 0) * 100} />

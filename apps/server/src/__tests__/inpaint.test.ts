@@ -20,13 +20,15 @@ async function setup(arbitraryRatio = false) {
   const app = createApp({ store, client, health: async () => true });
   const sessionResponse = await app.request("/api/sessions", { method: "POST" });
   const cookie = sessionResponse.headers.get("set-cookie")!.split(";")[0];
-  const bytes = new Uint8Array(arbitraryRatio ? await readFile(new URL("./fixtures/black-686x480-124.mp4", import.meta.url)) : await fixture());
-  const form = new FormData(); form.set("video", new File([bytes], "clip.mp4", { type: "video/mp4" }));
+  // The source is uploaded as shot; the prepared source and mask, and the result, are at its 768p delivery size.
+  const original = new Uint8Array(arbitraryRatio ? await readFile(new URL("./fixtures/black-686x480-124.mp4", import.meta.url)) : await fixture());
+  const bytes = new Uint8Array(await readFile(new URL(`./fixtures/${arbitraryRatio ? "black-1098x768-124" : "black-768-124"}.mp4`, import.meta.url)));
+  const form = new FormData(); form.set("video", new File([original], "clip.mp4", { type: "video/mp4" }));
   const response = await app.request("/api/videos", { method: "POST", headers: { cookie }, body: form });
   expect(response.status).toBe(201);
   const video = await response.json();
   const session = [...store.sessions.values()][0];
-  const request = { videoId: video.id, width: video.width, height: video.height, frames: 124, prompt: "A red balloon follows the moving area.", feather: 16, audio: "replace", seed: 7 };
+  const request = { videoId: video.id, width: arbitraryRatio ? 1098 : 768, height: 768, frames: 124, prompt: "A red balloon follows the moving area.", feather: 16, audio: "replace", seed: 7 };
   const remote = { status: "succeeded", result: vi.fn(async () => undefined), cancel: vi.fn(async () => undefined),
     async *events() { yield { kind: "progress", value: 0.5, step: 10, steps: 20 }; },
     getOutputs: vi.fn((id: string) => id === INPAINT_OUTPUT ? [{ toBytes: async () => bytes }] : []),
@@ -48,18 +50,17 @@ describe("video inpainting", () => {
     expect((await upload()).status).toBe(202);
     await session.job!.done;
     const graph = submit.mock.calls[0][0].json as ApiGraph;
-    expect(graph["14"].inputs).toMatchObject({ width: 672, height: 480 });
-    expect(graph["34"].inputs).toMatchObject({ width: 686, height: 480, crop: "disabled" });
-    expect(session.job!.snapshot).toMatchObject({ status: "completed", inpainting: { width: 686, height: 480 } });
+    expect(graph["14"].inputs).toMatchObject({ width: 1088, height: 768 });
+    expect(graph["34"].inputs).toMatchObject({ width: 1098, height: 768, crop: "disabled" });
+    expect(session.job!.snapshot).toMatchObject({ status: "completed", inpainting: { width: 1098, height: 768 } });
   });
-  it("generates at 768p on H3's 768p canvas, and rejects sizes that match no tier", async () => {
-    const { app, cookie, session, request, upload, submit, remote } = await setup();
-    const large = new Uint8Array(await readFile(new URL("./fixtures/black-768-124.mp4", import.meta.url)));
-    submit.mockResolvedValue({ ...remote, getOutputs: () => [{ toBytes: async () => large }] } as unknown as Job);
+  it("generates at 768p on H3's 768p canvas, and rejects other sizes", async () => {
+    const { session, request, upload, submit } = await setup();
+    const small = new Uint8Array(await fixture());
     expect((await upload({ ...request, width: 640, height: 640 })).status).toBe(400);
-    const data = new FormData(); data.set("request", JSON.stringify({ ...request, width: 768, height: 768 }));
-    data.set("source", new File([large], "source.mp4")); data.set("mask", new File([large], "mask.mp4"));
-    expect((await app.request("/api/jobs/inpaint", { method: "POST", headers: { cookie }, body: data })).status).toBe(202);
+    expect((await upload({ ...request, width: 480, height: 480 }, { source: small, mask: small })).status).toBe(400);
+    expect(submit).not.toHaveBeenCalled();
+    expect((await upload()).status).toBe(202);
     await session.job!.done;
     const graph = submit.mock.calls[0][0].json as ApiGraph;
     expect(graph["14"].inputs).toMatchObject({ width: 768, height: 768 });
@@ -68,7 +69,7 @@ describe("video inpainting", () => {
   });
   it("rejects a result that was not restored to the delivered dimensions", async () => {
     const { session, upload, submit, remote } = await setup(true);
-    const square = new Uint8Array(await fixture());
+    const square = new Uint8Array(await readFile(new URL("./fixtures/black-768-124.mp4", import.meta.url)));
     submit.mockResolvedValue({ ...remote, getOutputs: () => [{ toBytes: async () => square }] } as unknown as Job);
     expect((await upload()).status).toBe(202);
     await session.job!.done;
@@ -83,7 +84,7 @@ describe("video inpainting", () => {
     const graph = submit.mock.calls[0][0].json as ApiGraph;
     expect(Object.values(graph).filter(n => n.class_type === "SamplerCustomAdvanced")).toHaveLength(1);
     expect(graph["1"].inputs.unet_name).toBe("minimax_h3_ref2va_pruned_int8_convrot.safetensors");
-    expect(graph["14"].inputs).toMatchObject({ width: 480, height: 480, length: 124, prompt: request.prompt });
+    expect(graph["14"].inputs).toMatchObject({ width: 768, height: 768, length: 124, prompt: request.prompt });
     expect(graph["13"].inputs.pixels).toEqual(["30", 0]);
     expect(Object.values(graph).some(node => node.class_type === "EmptyImage")).toBe(false);
     expect(graph["14"].inputs).not.toHaveProperty("ref_images.ref_image_1");
@@ -107,7 +108,7 @@ describe("video inpainting", () => {
   });
   it("only accepts the source's sound when it is kept or referenced, and lets H3 hear it then", async () => {
     const { request, upload, submit, session } = await setup();
-    const sounding = new Uint8Array(await readFile(new URL("./fixtures/black-480-124-audio.mp4", import.meta.url)));
+    const sounding = new Uint8Array(await readFile(new URL("./fixtures/black-768-124-audio.mp4", import.meta.url)));
     expect(await (await upload({ ...request, audio: "replace" }, { source: sounding })).json())
       .toMatchObject({ error: "Replacing the sound needs a source video without it." });
     for (const audio of ["reference", "preserve", undefined]) {
@@ -165,7 +166,7 @@ describe("video inpainting", () => {
     expect((await upload({ ...request, videoId: crypto.randomUUID() })).status).toBe(409);
     expect((await upload({ ...request, width: 864 })).status).toBe(400);
     expect((await upload({ ...request, frames: 107 })).status).toBe(400);
-    expect((await upload(undefined, { mask: new Uint8Array(await fixture(123)) })).status).toBe(400);
+    expect((await upload(undefined, { mask: new Uint8Array(await readFile(new URL("./fixtures/black-768-123.mp4", import.meta.url))) })).status).toBe(400);
     expect(submit).not.toHaveBeenCalled();
   });
   it("rejects unreadable media, empty prompts and concurrent jobs", async () => {

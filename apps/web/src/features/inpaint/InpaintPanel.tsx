@@ -3,7 +3,7 @@ import {
   Accordion, AccordionDetails, AccordionSummary, Alert, Box, Button, ButtonBase, IconButton, LinearProgress, ListItemText, Menu, MenuItem, Slider, Stack, Step, StepButton, Stepper,
   TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography,
 } from "@mui/material";
-import { MASK_FEATHER, MASK_GROW, VIDEO_TIERS } from "@h3-motion/shared";
+import { MASK_FEATHER, MASK_GROW } from "@h3-motion/shared";
 import { MAX_MASKS, audioMode, inpaintPrompt, useInpaintStore } from "./useInpaintStore";
 import { PromptModeToggle } from "../shell/PromptModeToggle";
 import { RemoveMediaButton } from "../shell/RemoveMediaButton";
@@ -189,13 +189,6 @@ export function InpaintPanel() {
         <TextField label="Music [Optional]" multiline minRows={3} value={s.music} disabled={busy}
           onChange={event => s.setMusic(event.target.value)} slotProps={{ htmlInput: { maxLength: 250 } }} />
       </>}
-      <Stack spacing={1}>
-        <Typography variant="caption" color="text.secondary">Resolution</Typography>
-        <ToggleButtonGroup exclusive size="small" value={s.tier} disabled={busy} aria-label="Resolution"
-          onChange={(_, value: unknown) => { const next = VIDEO_TIERS.find(option => option === value); if (next) s.setTier(next); }}>
-          {VIDEO_TIERS.map(value => <ToggleButton key={value} value={value} sx={{ px: 1.5, py: .5, borderRadius: 99 }}>{value}p</ToggleButton>)}
-        </ToggleButtonGroup>
-      </Stack>
       {busy && s.task !== "reference" ? <Stack spacing={1} aria-live="polite">
         <Typography variant="body2">{s.status === "preparing" ? "Preparing video and mask…" : s.status === "uploading" ? "Uploading…" : s.job?.message ?? "Inpainting…"}</Typography>
         <LinearProgress variant={s.progress === null ? "indeterminate" : "determinate"} value={(s.progress ?? 0) * 100} />

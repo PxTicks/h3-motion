@@ -89,7 +89,7 @@ uploads them with the start frame and runs the animate workflow. **Source |
 Result** switches between the frames H3 receives and the generated video.
 **Main prompt** is always visible and starts with the generated subject and path
 description. Edit it to change the visual instructions. **Advanced** holds the
-resolution (480p or 768p, measured on the output's short edge), fixed seed, **Sound effects
+fixed seed, **Sound effects
 [Optional]**, and **Music [Optional]**. Sound effects start with the suggested
 scene ambience; music starts blank. The H3 header and section labels are added
 when submitting the prompt, so they do not appear in the text boxes.
@@ -109,7 +109,7 @@ frame at the playhead, edited by Qwen Image inside the mask. With a reference,
 the prompt is laid out in MiniMax's full-reference sections: an object is
 defined as `<Subject 1>`, and an edited frame as a `<Picture 1>` keyframe anchor
 of the shot. Video preparation keeps the source ratio at a
-480p short edge, at 24 fps and up to the first 362 frames (15 s), trimmed to H3's 17k+5
+768p short edge (480p for tracking), at 24 fps and up to the first 362 frames (15 s), trimmed to H3's 17k+5
 frame grid. ComfyUI stretches source and mask onto a nearby model-valid canvas,
 then restores the output ratio before saving.
 

@@ -65,7 +65,7 @@ and masked sampling. Important differences:
 - The app samples six `lcm` steps with the Pika Flex ref2va turbo LoRA. vlo uses a
   20-step simple scheduler with the `er_sde` sampler and no LoRA.
 
-- The app uses the whole frame resized to 480p or 768p. vlo defaults to a crop around the
+- The app uses the whole frame resized to 768p. vlo defaults to a crop around the
   mask with 10% padding, then positions and masks the generated patch in its editor.
 - The app has no prefill step. vlo uses `vloFillMaskedArea`, a pull-push fill that
   smoothly extrapolates surrounding colors, enabled by default at full denoise.
@@ -106,11 +106,11 @@ cut-out at its offset; at rest it draws the original photo. Generation draws
 the same frames at the output size, plus a mask video with the subject in white,
 and the server checks each upload's size and frame count before submitting.
 Generation uses MiniMax H3's canonical canvas, the rule in SGLang's
-`adapt_shape_v1` and ComfyUI's `adapt_canvas`: the short edge at the selected
-resolution, the area capped at 768 × 1344, then each side rounded to 32 pixels.
-16:9 generates at 864 × 480 or 1344 × 768, matching MiniMax's 768p reference
-outputs; 21:9 at 768p generates at 1536 × 672. MiniMax only publishes 768p
-results, so 480p is outside its verified configuration.
+`adapt_shape_v1` and ComfyUI's `adapt_canvas`: the short edge at 768 pixels, the
+area capped at 768 × 1344, then each side rounded to 32 pixels. 16:9 generates at
+1344 × 768, matching MiniMax's 768p reference outputs; 21:9 generates at
+1536 × 672. Every video is generated and delivered at 768p, the only resolution
+MiniMax publishes results for.
 As in vlo, driven core `ImageScale` nodes stretch the start image, reference
 video and mask onto that canvas with cropping disabled, and another resize
 restores the source ratio at the selected short edge after decoding, before
