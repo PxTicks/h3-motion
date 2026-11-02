@@ -43,7 +43,7 @@ export const isolationResultSchema = z.object({
 });
 export type IsolationResult = z.infer<typeof isolationResultSchema>;
 /** TTM's end_step on the six-step turbo schedule: the subject is held to its path until this step. 6 holds every step. */
-export const LOCK_IN = { min: 2, max: 6, step: 1, default: 3 } as const;
+export const LOCK_IN = { min: 2, max: 6, step: 1, default: 2 } as const;
 /** How far the held subject mask is eroded before TTM, in generation-canvas pixels. 16 is one H3 latent cell. */
 export const EDGE_FREEDOM = { min: 0, max: 64, step: 4, default: 16 } as const;
 const dimensionSchema = videoDimensionSchema;
