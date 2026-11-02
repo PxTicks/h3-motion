@@ -22,7 +22,7 @@ let sessionPromise: Promise<unknown> | undefined;
 export function App() {
   const [workflow, setWorkflow] = useState<Workflow>("upload");
   const [lastWorkflow, setLastWorkflow] = useState<Workflow | null>(null);
-  const [example, setExample] = useState(false);
+  const [exampleSource, setExampleSource] = useState<File | null>(null);
   const [ready, setReady] = useState(false);
   const [startupError, setStartupError] = useState<string | null>(null);
   const [comfyAvailable, setComfyAvailable] = useState<boolean | null>(null);
@@ -36,6 +36,10 @@ export function App() {
   const mask = useSelectionStore(s => s.mask);
   const isolation = useSelectionStore(currentIsolation);
   const image = useSelectionStore(s => s.image);
+  const imageSource = useSelectionStore(s => s.source);
+  const videoSource = useInpaintStore(s => s.source);
+  // Hints guide only the example's own media, so they stop when another photo is dropped on the canvas.
+  const example = !!exampleSource && exampleSource === (workflow === "video" ? videoSource : imageSource);
   const moved = useMotionStore(s => !!image && !!mask && s.subjectKey === subjectKeyOf(image.id, mask.id)
     && (s.subjects.length ? s.subjects.some(subject => subject.motion.keys.length > 1) : (s.motion?.keys.length ?? 0) > 1));
   const recording = useMotionStore(s => s.recording);
@@ -56,7 +60,7 @@ export function App() {
       resetFollowSelection();
     }
     setLastWorkflow(null);
-    setExample(false);
+    setExampleSource(null);
     setWorkflow("upload");
   }
 
@@ -108,7 +112,10 @@ export function App() {
     {notice && workflow === "image" && <Typography role="status" color="text.secondary" sx={{ mb: 2, fontSize: 14 }}>{notice}</Typography>}
     {!ready && !startupError && <Typography role="status" sx={{ mb: 2 }}>Starting your session…</Typography>}
     {workflow === "upload" ? <Box sx={{ pointerEvents: ready ? "auto" : "none", opacity: ready ? 1 : .45 }} inert={!ready}>
-      <MediaUpload onUploaded={(next, isExample = false) => { setWorkflow(next); setLastWorkflow(next); setExample(isExample); }} />
+      <MediaUpload onUploaded={(next, isExample = false) => {
+        setWorkflow(next); setLastWorkflow(next);
+        setExampleSource(isExample ? (next === "video" ? useInpaintStore.getState().source : useSelectionStore.getState().source) : null);
+      }} />
     </Box> : <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "minmax(0, 1fr) 360px" }, gap: 3, alignItems: "start",
       pointerEvents: ready ? "auto" : "none", opacity: ready ? 1 : .45 }} inert={!ready}>
       <Paper sx={{ p: { xs: 1.5, md: 2.5 }, overflow: "hidden" }}>
