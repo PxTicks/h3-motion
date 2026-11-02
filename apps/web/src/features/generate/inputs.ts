@@ -9,7 +9,7 @@ export type Tier = VideoTier;
 interface Parts {
   image: ImageAsset | null; mask: ImageAsset | null; isolation: IsolationResult | null;
   motion: SubjectMotion | null; subjectKey: string | null; bounds: Rect | null;
-  layers: SubjectLayers | null; layersKey: string | null; tier: Tier; lockIn: number; prompt: string | null;
+  layers: SubjectLayers | null; layersKey: string | null; tier: Tier; prompt: string | null;
   /** Null follows the subject's size: see autoEdgeFreedom. */
   edgeFreedom: number | null;
   subjects: MotionSubject[];
@@ -17,10 +17,10 @@ interface Parts {
   /** The whole prompt as written in raw mode, sent instead of the fields; null in formatted mode. */
   rawPrompt?: string | null;
 }
-type PromptSettings = Pick<Parts, "tier" | "lockIn" | "edgeFreedom" | "prompt" | "soundEffects" | "music" | "rawPrompt">;
+type PromptSettings = Pick<Parts, "tier" | "edgeFreedom" | "prompt" | "soundEffects" | "music" | "rawPrompt">;
 export interface GenerationInputs {
   image: ImageAsset; mask: ImageAsset; isolation: IsolationResult; motion: SubjectMotion; layers: SubjectLayers;
-  size: FrameSize; lockIn: number; autoPrompt: string; prompt: string;
+  size: FrameSize; autoPrompt: string; prompt: string;
   /** The edge freedom sent: the chosen one, or the automatic one if none is chosen. */
   edgeFreedom: number; autoEdgeFreedom: number;
   promptFields: H3PromptFields;
@@ -48,9 +48,9 @@ export function resolveInputs(parts: Parts): GenerationInputs | null {
     soundEffects: parts.soundEffects ?? automatic.soundEffects, music: parts.music ?? "" };
   const prompt = parts.rawPrompt == null ? composeH3Prompt(promptFields) : parts.rawPrompt.trim();
   const signature = JSON.stringify([image.id, mask.id, isolation.plate.id,
-    subjects.length ? subjects.map(subject => [subject.id, subject.motion]) : motion, size, parts.lockIn, edgeFreedom, prompt]);
+    subjects.length ? subjects.map(subject => [subject.id, subject.motion]) : motion, size, edgeFreedom, prompt]);
   const renderLayers = subjects.length ? { ...layers, subjects: subjects.map(subject => ({ layers: subject.layers, motion: subject.motion })) } : layers;
-  return { image, mask, isolation, motion, layers: renderLayers, subjects, size, lockIn: parts.lockIn, edgeFreedom, autoEdgeFreedom: auto, autoPrompt, promptFields, prompt, signature };
+  return { image, mask, isolation, motion, layers: renderLayers, subjects, size, edgeFreedom, autoEdgeFreedom: auto, autoPrompt, promptFields, prompt, signature };
 }
 
 export function currentParts(settings: PromptSettings): Parts {
@@ -70,7 +70,7 @@ export function useGenerationInputs(settings: PromptSettings & { rawPrompt: stri
   const bounds = useMotionStore(s => s.bounds);
   const layers = useMotionStore(s => s.layers);
   const layersKey = useMotionStore(s => s.layersKey);
-  const { tier, lockIn, edgeFreedom, prompt, soundEffects, music, rawPrompt } = settings;
-  return useMemo(() => resolveInputs({ image, mask, isolation, motion, subjects, subjectKey, bounds, layers, layersKey, tier, lockIn, edgeFreedom, prompt, soundEffects, music, rawPrompt }),
-    [image, mask, isolation, motion, subjects, subjectKey, bounds, layers, layersKey, tier, lockIn, edgeFreedom, prompt, soundEffects, music, rawPrompt]);
+  const { tier, edgeFreedom, prompt, soundEffects, music, rawPrompt } = settings;
+  return useMemo(() => resolveInputs({ image, mask, isolation, motion, subjects, subjectKey, bounds, layers, layersKey, tier, edgeFreedom, prompt, soundEffects, music, rawPrompt }),
+    [image, mask, isolation, motion, subjects, subjectKey, bounds, layers, layersKey, tier, edgeFreedom, prompt, soundEffects, music, rawPrompt]);
 }

@@ -10,7 +10,7 @@ import type { AnimateRequest } from "@h3-motion/shared";
 import { createApp } from "../app.js";
 import { SessionStore } from "../sessions.js";
 import { encodeMask } from "../media/masks.js";
-import { ANIMATE_BINDINGS, ANIMATE_OUTPUT, ANIMATE_SAMPLER, TURBO_SIGMAS } from "../workflows/templates.js";
+import { ANIMATE_BINDINGS, ANIMATE_MODEL, ANIMATE_OUTPUT, ANIMATE_SAMPLER, TURBO_SIGMAS } from "../workflows/templates.js";
 import { comfyLow } from "../comfy.js";
 import { createManagedJob, runWorkflow, stageProgress } from "../jobs/runtime.js";
 import type { ApiGraph } from "../workflows/templates.js";
@@ -33,7 +33,7 @@ async function setup() {
   session.isolation = { imageId: session.image.id, maskId: session.selection.id, plate: { id: plate.id, url: plate.url, width: 2, height: 2 },
     phrase: "the brown dog", caption: DEFAULT_CAPTION, descriptionSource: "model", instructionSource: "model", instruction: "Remove it.", seed: 1 };
   const request: AnimateRequest = { imageId: session.image.id, maskId: session.selection.id, plateId: plate.id,
-    width: 480, height: 480, frames: 124, prompt: "A dog runs.", lockIn: 6, edgeFreedom: 16, seed: 7 };
+    width: 480, height: 480, frames: 124, prompt: "A dog runs.", edgeFreedom: 16, seed: 7 };
   return { app, client, session, cookie, request };
 }
 
@@ -70,20 +70,22 @@ describe("animate job", () => {
     expect(graph["29"].inputs).toMatchObject({ width: 686, height: 480, crop: "disabled" });
     expect(session.job!.snapshot).toMatchObject({ status: "completed", animation: { width: 686, height: 480 } });
   });
-  it.each([2, 3, 6])("submits lock-in %i with the request's settings and serves the generated video with byte ranges", async lockIn => {
+  it("submits the request's settings, holds the path for TTM's first two steps, and serves the generated video with byte ranges", async () => {
     const { app, client, session, cookie, request } = await setup();
     const video = new Uint8Array(await fixture(124));
     const submit = vi.spyOn(client, "submit").mockResolvedValue(remote(video));
-    const response = await upload(app, cookie, { ...request, lockIn });
+    // Older clients still send a lock-in; it is ignored.
+    const response = await upload(app, cookie, { ...request, lockIn: 6 });
     expect(response.status).toBe(202);
     await session.job!.done;
     const json = submit.mock.calls[0][0].json as ApiGraph;
     expect(json[ANIMATE_BINDINGS.prompt.node].inputs).toMatchObject({ prompt: "A dog runs.", width: 480, height: 480, length: 124 });
-    expect(json[ANIMATE_BINDINGS.lockIn.node].inputs).toMatchObject({ start_step: 1, end_step: lockIn });
+    expect(json[ANIMATE_MODEL.ttm.node].inputs).toMatchObject({ start_step: 1, end_step: 2 });
     expect(String(json[TURBO_SIGMAS.animate.node].inputs.sigmas).split(",")).toHaveLength(7);
     expect(json[ANIMATE_BINDINGS.seed.node].inputs.noise_seed).toBe(7);
     expect(json[ANIMATE_BINDINGS.grow.node].inputs.expand).toBe(-16);
-    expect(session.job!.snapshot).toMatchObject({ status: "completed", stage: "animate", animation: { seed: 7, frames: 124, lockIn } });
+    expect(session.job!.snapshot).toMatchObject({ status: "completed", stage: "animate", animation: { seed: 7, frames: 124 } });
+    expect(session.animation).not.toHaveProperty("lockIn");
     const { url } = session.animation!.video;
     const full = await app.request(url, { headers: { cookie } });
     expect(full.headers.get("content-type")).toBe("video/mp4");
@@ -92,14 +94,6 @@ describe("animate job", () => {
     expect(partial.status).toBe(206);
     expect(partial.headers.get("content-range")).toBe(`bytes 10-19/${video.length}`);
     expect(new Uint8Array(await partial.arrayBuffer())).toEqual(video.subarray(10, 20));
-  });
-  it("rejects lock-in values outside 2–6 or fractional steps before submitting", async () => {
-    const { app, client, cookie, request } = await setup();
-    const submit = vi.spyOn(client, "submit");
-    for (const lockIn of [1, 2.5, 7]) {
-      expect((await upload(app, cookie, { ...request, lockIn })).status).toBe(400);
-    }
-    expect(submit).not.toHaveBeenCalled();
   });
   it("erodes the held mask by the requested edge freedom and rejects values outside 0–64 or fractional pixels", async () => {
     const { app, client, session, cookie, request } = await setup();

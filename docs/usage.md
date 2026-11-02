@@ -80,10 +80,9 @@ Retrying the background keeps the paths and layer order. Unchanged subjects keep
 their paths when the selection changes; a new photo resets all paths. Preview and
 video rendering composite every subject using its own path and the chosen order.
 
-**Continue** opens Generate. The workflow uses **25 sampling steps**.
-**Motion lock-in** uses a slider from **2 to 15** in whole steps, default **9**, setting the step
-at which the subject is released from your path. Higher values hold it longer but
-leave H3 less room to blend the cut-out into the scene. **GENERATE** renders the
+**Continue** opens Generate. The workflow uses **six sampling steps** and holds
+the subject to your path through the second, then lets H3 blend the cut-out into
+the scene. **GENERATE** renders the
 reference and mask videos in a Web Worker, encodes exactly the clip's
 frame count with mediabunny (H.264 MP4, or VP9 WebM where H.264 isn't available),
 uploads them with the start frame and runs the animate workflow. **Source |

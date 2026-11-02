@@ -1,14 +1,12 @@
 import { Accordion, AccordionDetails, AccordionSummary, Alert, Box, Button, LinearProgress, Slider, Stack, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from "@mui/material";
-import { EDGE_FREEDOM, LOCK_IN, VIDEO_TIERS } from "@h3-motion/shared";
+import { EDGE_FREEDOM, VIDEO_TIERS } from "@h3-motion/shared";
 import { useGenerationInputs } from "./inputs";
 import { useCurrentResult, useGenerateStore, usePromptSettings } from "./useGenerateStore";
 import { PromptModeToggle } from "../shell/PromptModeToggle";
 
-const LOCK_IN_HELP = "How long the subject is held to your path. Higher values follow the path more tightly, but leave the model less room to blend the cut-out into the scene.";
 const EDGE_FREEDOM_HELP = "How far inside its outline the subject is released from your animation. More freedom lets the model redraw the subject's edges, which helps when part of it is cut off, such as an arm reaching in from off-screen. Automatic by default: small subjects get less, so enough of them stays held to follow the path.";
 
 export function GeneratePanel() {
-  const lockIn = useGenerateStore(s => s.lockIn);
   const edgeFreedom = useGenerateStore(s => s.edgeFreedom);
   const tier = useGenerateStore(s => s.tier);
   const seed = useGenerateStore(s => s.seed);
@@ -23,7 +21,7 @@ export function GeneratePanel() {
   const job = useGenerateStore(s => s.job);
   const error = useGenerateStore(s => s.error);
   const notice = useGenerateStore(s => s.notice);
-  const { setLockIn, setEdgeFreedom, setTier, setSeed, setPrompt, setSoundEffects, setMusic, setPromptMode, setRawPrompt, resetPrompt, keepRawPrompt,
+  const { setEdgeFreedom, setTier, setSeed, setPrompt, setSoundEffects, setMusic, setPromptMode, setRawPrompt, resetPrompt, keepRawPrompt,
     generate, cancel, clearError } = useGenerateStore.getState();
   const inputs = useGenerationInputs(usePromptSettings());
   const result = useCurrentResult();
@@ -37,20 +35,6 @@ export function GeneratePanel() {
       <Typography variant="h2">Bring it to life</Typography>
       <Typography variant="body2" color="text.secondary">Write a detailed prompt to bring your animation to life.</Typography>
     </Stack>
-    <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Tooltip title={LOCK_IN_HELP} placement="top-start">
-          <Typography variant="overline" color="text.secondary" tabIndex={0} sx={{ cursor: "help" }}>Motion lock-in <Box component="span" sx={{ textTransform: "none" }}>ⓘ</Box></Typography>
-        </Tooltip>
-        <Typography variant="body2" sx={{ fontVariantNumeric: "tabular-nums" }}>{lockIn}</Typography>
-      </Stack>
-      <Slider value={lockIn} min={LOCK_IN.min} max={LOCK_IN.max} step={LOCK_IN.step} disabled={busy} aria-label="Motion lock-in"
-        onChange={(_, value) => setLockIn(Array.isArray(value) ? value[0] : value)} />
-      <Stack direction="row" justifyContent="space-between" sx={{ mt: -1 }}>
-        <Typography variant="caption" color="text.secondary">Loose</Typography>
-        <Typography variant="caption" color="text.secondary">Locked</Typography>
-      </Stack>
-    </Box>
     {promptMode === "raw" ? <TextField multiline minRows={12} label="Raw prompt" value={rawPrompt} disabled={busy || !inputs}
       onChange={event => setRawPrompt(event.target.value)} slotProps={{ htmlInput: { maxLength: 4000 } }}
       helperText="Sent as written, so it doesn't follow changes to the motion." /> : <>

@@ -14,7 +14,7 @@
   "13": { "class_type": "GrowMask", "inputs": { "mask": ["12", 0], "expand": -16, "tapered_corners": true } },
   "14": { "class_type": "MiniMaxH3ImageToVideo", "inputs": { "clip": ["2", 0], "vae": ["3", 0], "prompt": "", "width": 864, "height": 480, "length": 124, "first_frame": ["26", 0] } },
   "15": { "class_type": "ModelAttentionBackend", "inputs": { "model": ["31", 0], "attention": "comfy kitchen attention" } },
-  "16": { "class_type": "vloTimeToMove", "inputs": { "model": ["30", 0], "reference_latents": ["10", 0], "mask": ["13", 0], "start_step": 1, "end_step": 6 } },
+  "16": { "class_type": "vloTimeToMove", "inputs": { "model": ["30", 0], "reference_latents": ["10", 0], "mask": ["13", 0], "start_step": 1, "end_step": 2 } },
   "17": { "class_type": "BasicGuider", "inputs": { "model": ["16", 0], "conditioning": ["14", 0] } },
   "18": { "class_type": "ManualSigmas", "inputs": { "sigmas": "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0" } },
   "19": { "class_type": "KSamplerSelect", "inputs": { "sampler_name": "lcm" } },

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
-import { EDGE_FREEDOM, LOCK_IN, jobSnapshotSchema, parseH3Prompt, validateMotion } from "@h3-motion/shared";
+import { EDGE_FREEDOM, jobSnapshotSchema, parseH3Prompt, validateMotion } from "@h3-motion/shared";
 import type { AnimateRequest, AnimationResult, JobSnapshot } from "@h3-motion/shared";
 import { apiRequest, watchJob } from "../../api";
 import { currentIsolation, useSelectionStore } from "../select";
@@ -13,7 +13,7 @@ export type GenerateStatus = "idle" | "rendering" | "uploading" | "generating";
 export interface GeneratedVideo extends AnimationResult { signature: string }
 
 interface GenerateState {
-  lockIn: number; tier: Tier;
+  tier: Tier;
   /** Null until the user picks one, so it follows the subject's size. */
   edgeFreedom: number | null; seed: string; prompt: string | null;
   soundEffects: string | null; music: string;
@@ -23,7 +23,7 @@ interface GenerateState {
   unformattable: boolean;
   status: GenerateStatus; progress: number | null; job: JobSnapshot | null;
   result: GeneratedVideo | null; view: "source" | "result"; error: string | null; notice: string | null;
-  setLockIn: (lockIn: number) => void; setEdgeFreedom: (edgeFreedom: number | null) => void; setTier: (tier: Tier) => void; setSeed: (seed: string) => void;
+  setEdgeFreedom: (edgeFreedom: number | null) => void; setTier: (tier: Tier) => void; setSeed: (seed: string) => void;
   /** null follows the generated main prompt or sound effects. */
   setPrompt: (prompt: string | null) => void;
   setSoundEffects: (soundEffects: string | null) => void; setMusic: (music: string) => void;
@@ -38,25 +38,24 @@ interface GenerateState {
 }
 
 /** The prompt settings `resolveInputs` reads; `rawPrompt` only in raw mode. */
-export function promptSettings({ tier, lockIn, edgeFreedom, prompt, soundEffects, music, promptMode, rawPrompt }:
-  Pick<GenerateState, "tier" | "lockIn" | "edgeFreedom" | "prompt" | "soundEffects" | "music" | "promptMode" | "rawPrompt">) {
-  return { tier, lockIn, edgeFreedom, prompt, soundEffects, music, rawPrompt: promptMode === "raw" ? rawPrompt : null };
+export function promptSettings({ tier, edgeFreedom, prompt, soundEffects, music, promptMode, rawPrompt }:
+  Pick<GenerateState, "tier" | "edgeFreedom" | "prompt" | "soundEffects" | "music" | "promptMode" | "rawPrompt">) {
+  return { tier, edgeFreedom, prompt, soundEffects, music, rawPrompt: promptMode === "raw" ? rawPrompt : null };
 }
 
 /** The current prompt settings, so every view resolves the same inputs, and signature, that `generate` sends. */
 export function usePromptSettings() {
-  return promptSettings(useGenerateStore(useShallow(({ tier, lockIn, edgeFreedom, prompt, soundEffects, music, promptMode, rawPrompt }) =>
-    ({ tier, lockIn, edgeFreedom, prompt, soundEffects, music, promptMode, rawPrompt }))));
+  return promptSettings(useGenerateStore(useShallow(({ tier, edgeFreedom, prompt, soundEffects, music, promptMode, rawPrompt }) =>
+    ({ tier, edgeFreedom, prompt, soundEffects, music, promptMode, rawPrompt }))));
 }
 
 const message = (error: unknown) => error instanceof Error ? error.message : "Something went wrong. Try again.";
 let controller: AbortController | null = null;
 
 export const useGenerateStore = create<GenerateState>((set, get) => ({
-  lockIn: LOCK_IN.default, edgeFreedom: null, tier: 768, seed: "", prompt: null, soundEffects: null, music: "",
+  edgeFreedom: null, tier: 768, seed: "", prompt: null, soundEffects: null, music: "",
   promptMode: "formatted", rawPrompt: "", unformattable: false,
   status: "idle", progress: null, job: null, result: null, view: "source", error: null, notice: null,
-  setLockIn: lockIn => set({ lockIn: Math.min(LOCK_IN.max, Math.max(LOCK_IN.min, Math.round(lockIn / LOCK_IN.step) * LOCK_IN.step)) }),
   setEdgeFreedom: edgeFreedom => set({ edgeFreedom: edgeFreedom === null ? null : Math.min(EDGE_FREEDOM.max, Math.max(EDGE_FREEDOM.min, Math.round(edgeFreedom / EDGE_FREEDOM.step) * EDGE_FREEDOM.step)) }),
   setTier: tier => set({ tier }),
   setSeed: seed => set({ seed }),
@@ -105,7 +104,7 @@ export const useGenerateStore = create<GenerateState>((set, get) => ({
       signal.throwIfAborted();
       set({ status: "uploading", progress: null });
       const request: AnimateRequest = { imageId: inputs.image.id, maskId: inputs.mask.id, plateId: inputs.isolation.plate.id,
-        ...inputs.size, frames: inputs.motion.frames, prompt: inputs.prompt, lockIn: inputs.lockIn, edgeFreedom: inputs.edgeFreedom, ...(seed === undefined ? {} : { seed }) };
+        ...inputs.size, frames: inputs.motion.frames, prompt: inputs.prompt, edgeFreedom: inputs.edgeFreedom, ...(seed === undefined ? {} : { seed }) };
       const form = new FormData();
       form.set("request", JSON.stringify(request));
       form.set("reference", videos.reference, `reference.${videos.container}`);

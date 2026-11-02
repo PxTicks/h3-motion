@@ -65,7 +65,6 @@ export const ANIMATE_BINDINGS = {
   width: { node: "14", input: "width", classType: "MiniMaxH3ImageToVideo" },
   height: { node: "14", input: "height", classType: "MiniMaxH3ImageToVideo" },
   length: { node: "14", input: "length", classType: "MiniMaxH3ImageToVideo" },
-  lockIn: { node: "16", input: "end_step", classType: "vloTimeToMove" },
   seed: { node: "20", input: "noise_seed", classType: "RandomNoise" },
 } satisfies Record<string, Binding>;
 /**
@@ -244,7 +243,7 @@ export async function buildObjectWorkflow(client: Comfy, options: { prompt: stri
 
 export async function buildAnimateWorkflow(client: Comfy, options: {
   startPath: string; referencePath: string; maskPath: string; size: FrameSize; modelSize: FrameSize; frames: number;
-  prompt: string; lockIn: number; edgeFreedom: number; seed: number; spectrum?: boolean; sol?: boolean;
+  prompt: string; edgeFreedom: number; seed: number; spectrum?: boolean; sol?: boolean;
 }): Promise<Workflow> {
   const graph = await loadTemplate("animate");
   assertBindings(graph, [...Object.values(ANIMATE_BINDINGS), ...Object.values(ANIMATE_MODEL), ANIMATE_SAMPLER, TURBO_SIGMAS.animate]);
@@ -262,7 +261,7 @@ export async function buildAnimateWorkflow(client: Comfy, options: {
   const values: Record<keyof typeof ANIMATE_BINDINGS, unknown> = {
     start: client.assets.fromFile(options.startPath), reference: client.assets.fromFile(options.referencePath),
     mask: client.assets.fromFile(options.maskPath), grow: -options.edgeFreedom, prompt: options.prompt,
-    width: options.modelSize.width, height: options.modelSize.height, length: options.frames, lockIn: options.lockIn, seed: options.seed,
+    width: options.modelSize.width, height: options.modelSize.height, length: options.frames, seed: options.seed,
   };
   for (const [key, binding] of Object.entries(ANIMATE_BINDINGS)) workflow.setInput(binding.node, binding.input, values[key as keyof typeof values]);
   return workflow;

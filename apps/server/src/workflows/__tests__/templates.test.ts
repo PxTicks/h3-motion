@@ -9,7 +9,7 @@ describe("workflow contracts", () => {
   it("stretches all animation inputs onto one model canvas and restores the delivered ratio before encoding", async () => {
     const { output: size, generation: modelSize } = videoGeometry({ width: 1000, height: 701 });
     const graph = (await buildAnimateWorkflow(new Comfy(), { startPath: "/tmp/start.png", referencePath: "/tmp/reference.mp4",
-      maskPath: "/tmp/mask.mp4", size, modelSize, frames: 124, prompt: "A bird flies.", lockIn: 6, edgeFreedom: 16, seed: 42 })).json as ApiGraph;
+      maskPath: "/tmp/mask.mp4", size, modelSize, frames: 124, prompt: "A bird flies.", edgeFreedom: 16, seed: 42 })).json as ApiGraph;
     expect(graph["14"].inputs).toMatchObject({ ...modelSize, first_frame: ["26", 0] });
     for (const [node, image] of [["26", "5"], ["27", "8"], ["28", "9"]]) {
       expect(graph[node]).toMatchObject({ class_type: "ImageScale", inputs: { ...modelSize, image: [image, 0], crop: "disabled" } });
@@ -191,7 +191,7 @@ describe("workflow contracts", () => {
     expect(graph["11"].inputs).toMatchObject({ channel: "red" });
     expect(graph["12"]).toMatchObject({ class_type: "ThresholdMask", inputs: { value: 0.5 } });
     expect(graph["13"]).toMatchObject({ class_type: "GrowMask", inputs: { mask: ["12", 0], expand: -16, tapered_corners: true } });
-    expect(graph["16"].inputs).toMatchObject({ start_step: 1, end_step: 6, mask: ["13", 0] });
+    expect(graph["16"].inputs).toMatchObject({ start_step: 1, end_step: 2, mask: ["13", 0] });
     expect(graph["18"]).toEqual({ class_type: "ManualSigmas", inputs: { sigmas: "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0" } });
     expect(graph["19"].inputs.sampler_name).toBe("lcm");
     expect(graph["31"]).toMatchObject({ class_type: "LoraLoaderModelOnly", inputs: { model: ["1", 0], lora_name: "pika_h3_flex_fl2va_v1_bf16.safetensors", strength_model: 1 } });
@@ -205,11 +205,11 @@ describe("workflow contracts", () => {
   });
   it("binds animate inputs and splices Spectrum only when asked", async () => {
     const options = { startPath: "/tmp/start.png", referencePath: "/tmp/reference.mp4", maskPath: "/tmp/mask.mp4",
-      size: { width: 1248, height: 704 }, modelSize: { width: 1248, height: 704 }, frames: 175, prompt: "A dog runs.", lockIn: 6, edgeFreedom: 16, seed: 9 };
+      size: { width: 1248, height: 704 }, modelSize: { width: 1248, height: 704 }, frames: 175, prompt: "A dog runs.", edgeFreedom: 16, seed: 9 };
     const plain = (await buildAnimateWorkflow(new Comfy(), options)).json as ApiGraph;
     expect(plain["14"].inputs).toMatchObject({ width: 1248, height: 704, length: 175, prompt: "A dog runs." });
     expect(plain[ANIMATE_BINDINGS.grow.node].inputs.expand).toBe(-16);
-    expect(plain["16"].inputs).toMatchObject({ end_step: 6, model: ["30", 0] });
+    expect(plain["16"].inputs).toMatchObject({ end_step: 2, model: ["30", 0] });
     expect(plain).not.toHaveProperty("spectrum");
     const fast = (await buildAnimateWorkflow(new Comfy(), { ...options, spectrum: true })).json as ApiGraph;
     expect(fast.spectrum).toMatchObject({ class_type: "SpectrumApplyMiniMaxH3", inputs: { model: ["30", 0], enabled: true, offline_smoothing_replay: false } });
@@ -222,7 +222,7 @@ describe("workflow contracts", () => {
     expect(graph["30"]).toMatchObject({ class_type: "BlockSparseAttention",
       inputs: { model: ["15", 0], selection: "sol-attn", "selection.tau": 1.3, start_percent: 0.2, end_percent: 1 } });
     const options = { startPath: "/tmp/start.png", referencePath: "/tmp/reference.mp4", maskPath: "/tmp/mask.mp4",
-      size: { width: 864, height: 480 }, modelSize: { width: 864, height: 480 }, frames: 124, prompt: "A dog runs.", lockIn: 6, edgeFreedom: 16, seed: 9 };
+      size: { width: 864, height: 480 }, modelSize: { width: 864, height: 480 }, frames: 124, prompt: "A dog runs.", edgeFreedom: 16, seed: 9 };
     const dense = (await buildAnimateWorkflow(new Comfy(), { ...options, sol: false })).json as ApiGraph;
     expect(dense).not.toHaveProperty("30");
     expect(dense["16"].inputs.model).toEqual(["15", 0]);

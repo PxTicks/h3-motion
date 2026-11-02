@@ -18,7 +18,7 @@ const isolation: IsolationResult = { imageId: image.id, maskId: mask.id, plate: 
   phrase: "the red ball", caption: { ...DEFAULT_CAPTION, subject: "the red ball", motion_verb: "rolls" }, instruction: "Remove it.",
   descriptionSource: "model", instructionSource: "model", seed: 1 };
 const layers = { width: 1728, height: 960 } as unknown as SubjectLayers;
-const settings = { tier: 480 as const, lockIn: 6, edgeFreedom: 16, prompt: null };
+const settings = { tier: 480 as const, edgeFreedom: 16, prompt: null };
 const videos: MotionVideos = { reference: new Blob(), mask: new Blob(), start: new Blob(), container: "mp4" };
 const queued: JobSnapshot = { id: "73ec450b-4181-46f9-aa8b-fb07ff5e3b38", status: "queued", progress: null,
   message: "Preparing video generation…", candidates: [], error: null };
@@ -49,7 +49,6 @@ describe("generation inputs", () => {
   });
   it("changes its signature with anything that changes the video, and treats a blank prompt as automatic", () => {
     const base = resolveInputs(currentParts(settings))!;
-    expect(resolveInputs(currentParts({ ...settings, lockIn: 5 }))!.signature).not.toBe(base.signature);
     expect(resolveInputs(currentParts({ ...settings, edgeFreedom: 32 }))!.signature).not.toBe(base.signature);
     expect(resolveInputs(currentParts({ ...settings, prompt: "A ball rolls." }))!.promptFields.mainPrompt).toBe("A ball rolls.");
     expect(resolveInputs(currentParts({ ...settings, prompt: "   " }))!.signature).toBe(base.signature);
@@ -137,7 +136,7 @@ describe("raw prompt", () => {
     vi.mocked(renderMotionVideos).mockResolvedValue(videos);
     vi.mocked(apiRequest).mockResolvedValue(queued);
     vi.mocked(watchJob).mockResolvedValue({ ...queued, status: "completed", animation: { imageId: image.id, maskId: mask.id, plateId: isolation.plate.id,
-      width: 864, height: 480, frames: 124, prompt: "A red ball rolls.", lockIn: 6, edgeFreedom: 16, seed: 1, video: { id: crypto.randomUUID(), url: "/api/files/out" } } });
+      width: 864, height: 480, frames: 124, prompt: "A red ball rolls.", edgeFreedom: 16, seed: 1, video: { id: crypto.randomUUID(), url: "/api/files/out" } } });
     await store().generate();
     const signature = () => resolveInputs(currentParts(promptSettings(store())))!.signature;
     expect(store().result?.signature).toBe(signature());
@@ -206,13 +205,6 @@ describe("generate guards", () => {
     expect(request.prompt).toContain("overall_soundscape: Soft rolling sounds.");
     expect(request.prompt).toContain("non_diegetic_music: Quiet piano music.");
   });
-  it("defaults lock-in to 2 and allows every whole step from 2 to 6", () => {
-    expect(useGenerateStore.getState().lockIn).toBe(2);
-    for (const [input, expected] of [[0, 2], [2, 2], ...Array.from({ length: 4 }, (_, i) => [i + 3, i + 3]), [3.6, 4], [17, 6]]) {
-      useGenerateStore.getState().setLockIn(input);
-      expect(useGenerateStore.getState().lockIn).toBe(expected);
-    }
-  });
   it("defaults edge freedom to automatic and snaps a chosen one to 4 px steps from 0 to 64", () => {
     expect(useGenerateStore.getState().edgeFreedom).toBeNull();
     for (const [input, expected] of [[-8, 0], [0, 0], [5, 4], [30, 32], [64, 64], [80, 64]]) {
@@ -272,7 +264,7 @@ describe("generate guards", () => {
     vi.mocked(watchJob).mockReturnValue(finished.promise);
     const previous = { imageId: image.id, maskId: mask.id, plateId: isolation.plate.id,
       video: { id: "last-video", url: "/api/files/last-video" }, width: 864, height: 480, frames: 124 as const,
-      prompt: "A ball rolls.", lockIn: 3, edgeFreedom: 16, seed: 1, signature: "previous" };
+      prompt: "A ball rolls.", edgeFreedom: 16, seed: 1, signature: "previous" };
     useGenerateStore.setState({ result: previous, view: "result" });
     const running = useGenerateStore.getState().generate();
     await vi.waitFor(() => expect(useGenerateStore.getState().status).toBe("uploading"));
