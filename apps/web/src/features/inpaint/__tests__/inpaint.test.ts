@@ -281,6 +281,19 @@ describe("inpainting editor", () => {
     expect(renderInpaintVideos).toHaveBeenCalledWith(expect.objectContaining({ audio: false }), expect.any(Function), expect.any(AbortSignal));
     expect(JSON.parse((vi.mocked(apiRequest).mock.calls[0][1]!.body as FormData).get("request") as string)).toMatchObject({ audio: "replace", prompt: "A bird flies." });
   });
+  it("sends a typed seed, and refuses an invalid one before rendering", async () => {
+    useInpaintStore.setState({ source, video, ...withMasks(mask(still)), prompt: "A bird flies.", step: 2 });
+    state().setSeed("-4");
+    await state().generate();
+    expect(state()).toMatchObject({ status: "idle", error: expect.stringMatching(/seed must be a whole number/) });
+    expect(renderInpaintVideos).not.toHaveBeenCalled();
+    state().setSeed(" 42 ");
+    vi.mocked(renderInpaintVideos).mockResolvedValue(videos);
+    vi.mocked(apiRequest).mockResolvedValue(queued);
+    vi.mocked(watchJob).mockResolvedValue({ ...queued, status: "completed", inpainting: result });
+    await state().generate();
+    expect(JSON.parse((vi.mocked(apiRequest).mock.calls[0][1]!.body as FormData).get("request") as string)).toMatchObject({ seed: 42 });
+  });
   it("defines an uploaded reference as an object and lays the prompt out around it", async () => {
     const reference = new File(["ref"], "ref.png", { type: "image/png" });
     useInpaintStore.setState({ source, video, ...withMasks(mask(still)), prompt: "A lantern sways.", step: 2 });

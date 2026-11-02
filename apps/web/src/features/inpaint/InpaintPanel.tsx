@@ -228,7 +228,10 @@ export function InpaintPanel({ example = false }: { example?: boolean }) {
       {s.notice && !busy && <Typography variant="body2" color="text.secondary" role="status">{s.notice}</Typography>}
       {s.result && <Stack spacing={1}>
         <Typography variant="overline" color="text.secondary">Output</Typography>
-        <Button variant="outlined" component="a" href={s.result.video.url} download="h3-inpaint.mp4" sx={{ alignSelf: "start" }}>Download video</Button>
+        <Stack direction="row" gap={1} flexWrap="wrap">
+          <Button variant="outlined" component="a" href={s.result.video.url} download="h3-inpaint.mp4">Download video</Button>
+          <Button disabled={busy} onClick={() => s.setSeed(String(s.result!.seed))}>Reuse seed</Button>
+        </Stack>
       </Stack>}
       <Accordion disableGutters elevation={0} sx={{ bgcolor: "transparent", border: "1px solid", borderColor: "divider", borderRadius: 1, "&::before": { display: "none" } }}>
         <AccordionSummary expandIcon={<Typography color="text.secondary">▾</Typography>}><Typography variant="overline">Advanced</Typography></AccordionSummary>
@@ -257,6 +260,8 @@ export function InpaintPanel({ example = false }: { example?: boolean }) {
                 <Slider value={value} min={range.min} max={range.max} step={range.step} disabled={busy} aria-label={label}
                   onChange={(_, next) => setValue(Array.isArray(next) ? next[0] : next)} />
               </Box>)}
+            <TextField size="small" label="Seed" placeholder="Random" value={s.seed} disabled={busy} onChange={event => s.setSeed(event.target.value)}
+              slotProps={{ htmlInput: { inputMode: "numeric" } }} helperText="Leave empty for a new random seed each time." />
           </Stack>
         </AccordionDetails>
       </Accordion>

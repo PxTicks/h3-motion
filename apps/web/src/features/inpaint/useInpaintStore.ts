@@ -51,6 +51,8 @@ interface InpaintState {
   unformattable: boolean;
   /** How far the mask is grown, and how softly the patch is blended in, in delivered-video pixels. */
   grow: number; feather: number;
+  /** The seed to inpaint with, as typed; empty picks a new random seed each time. */
+  seed: string;
   /** What happens to the source's sound, when it has any; a source without sound is always `replace`d. */
   audio: InpaintAudioMode;
   /** What the reference is to H3, which decides how the prompt defines it; null without a reference. */
@@ -108,7 +110,7 @@ interface InpaintState {
   setPromptMode(mode: PromptMode): void; setRawPrompt(rawPrompt: string): void;
   /** Drops the raw prompt and returns to the formatted prompt it started from. */
   resetPrompt(): void; keepRawPrompt(): void;
-  setGrow(grow: number): void; setFeather(feather: number): void; setAudio(audio: InpaintAudioMode): void; setView(view: "preview" | "result"): void;
+  setGrow(grow: number): void; setFeather(feather: number): void; setSeed(seed: string): void; setAudio(audio: InpaintAudioMode): void; setView(view: "preview" | "result"): void;
   /** Uses an uploaded image as the reference, as an object; null removes the reference. */
   setReference(file: File | null): void; setDefinition(definition: string): void;
   openCreator(kind: "object" | "frame" | null): void; setReferenceText(text: string): void;
@@ -198,7 +200,7 @@ export const useInpaintStore = create<InpaintState>((set, get) => {
   return {
     source: null, video: null, frames: 124, uploading: false, step: 0, masks: [], activeMaskId: null, shape: "rectangle", bounds: null, motion: null,
     playhead: 0, playing: false, recording: false, scrubbed: false, selectedKeyId: null,
-    prompt: "", soundEffects: "", music: "", promptMode: "formatted", rawPrompt: "", unformattable: false, grow: MASK_GROW.default, feather: MASK_FEATHER.default, audio: "reference", reference: null, result: null, view: "preview", status: "idle", task: null, progress: null, job: null, error: null, notice: null,
+    prompt: "", soundEffects: "", music: "", promptMode: "formatted", rawPrompt: "", unformattable: false, grow: MASK_GROW.default, feather: MASK_FEATHER.default, seed: "", audio: "reference", reference: null, result: null, view: "preview", status: "idle", task: null, progress: null, job: null, error: null, notice: null,
     picking: false, track: null, referenceRole: null, definition: "", creating: null, referenceText: "", created: null,
     upload: async file => {
       if (get().uploading || get().status !== "idle") return false;
@@ -435,6 +437,7 @@ export const useInpaintStore = create<InpaintState>((set, get) => {
     keepRawPrompt: () => set({ unformattable: false }),
     setGrow: grow => { if (get().status === "idle") set({ grow: stepped(grow, MASK_GROW), ...edited }); },
     setFeather: feather => { if (get().status === "idle") set({ feather: stepped(feather, MASK_FEATHER), ...edited }); },
+    setSeed: seed => set({ seed }),
     setAudio: audio => { if (get().status === "idle") set({ audio, ...edited }); },
     setReference: reference => {
       if (get().status !== "idle") return;
@@ -488,9 +491,11 @@ export const useInpaintStore = create<InpaintState>((set, get) => {
     },
     setView: view => set({ view }), clearError: () => set({ error: null }),
     generate: async () => {
-      const { source, video, frames, masks, grow, feather, reference, status } = get();
+      const { source, video, frames, masks, grow, feather, reference, status, seed: seedText } = get();
       const audio = audioMode(video, get().audio), text = inpaintPrompt(get());
       if (status !== "idle" || !source || !video || !masks.length || !text) return;
+      const seed = seedText.trim() ? Number(seedText.trim()) : undefined;
+      if (seed !== undefined && (!Number.isSafeInteger(seed) || seed < 0)) { set({ error: "The seed must be a whole number, 0 or more. Leave it empty for a random seed." }); return; }
       controller = new AbortController();
       const { signal } = controller;
       set({ task: "inpaint", status: "preparing", progress: 0, picking: false, error: null, notice: null, job: null, playing: false });
@@ -501,7 +506,7 @@ export const useInpaintStore = create<InpaintState>((set, get) => {
         signal.throwIfAborted();
         if (!videos.mask) throw new Error("Could not prepare the mask video.");
         const form = new FormData();
-        form.set("request", JSON.stringify({ videoId: video.id, ...size, frames, prompt: text, feather, audio }));
+        form.set("request", JSON.stringify({ videoId: video.id, ...size, frames, prompt: text, feather, audio, ...(seed === undefined ? {} : { seed }) }));
         form.set("source", videos.source, `source.${videos.container}`);
         form.set("mask", videos.mask, `mask.${videos.container}`);
         if (reference) form.set("reference", reference);
