@@ -11,7 +11,7 @@ export function mediaKind(file: Pick<File, "type" | "name">): "image" | "video" 
   if (["video/mp4", "video/webm"].includes(file.type) || (!file.type && /\.(mp4|webm)$/i.test(file.name))) return "video";
   return null;
 }
-export function MediaUpload({ onUploaded }: { onUploaded(workflow: Workflow): void }) {
+export function MediaUpload({ onUploaded }: { onUploaded(workflow: Workflow, example?: boolean): void }) {
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [loadingExample, setLoadingExample] = useState(false);
@@ -19,7 +19,7 @@ export function MediaUpload({ onUploaded }: { onUploaded(workflow: Workflow): vo
   const imageBusy = useSelectionStore(s => s.busy);
   const videoBusy = useInpaintStore(s => s.uploading);
   const busy = imageBusy || videoBusy || loadingExample;
-  async function upload(file: File) {
+  async function upload(file: File, example = false) {
     if (busy) return;
     setError(null);
     const kind = mediaKind(file);
@@ -27,7 +27,10 @@ export function MediaUpload({ onUploaded }: { onUploaded(workflow: Workflow): vo
     if (kind === "video") { if (await useInpaintStore.getState().upload(file)) onUploaded("video"); }
     else {
       await useSelectionStore.getState().upload(file);
-      if (useSelectionStore.getState().source === file) onUploaded("image");
+      if (useSelectionStore.getState().source === file) {
+        if (example) useSelectionStore.getState().setText("");
+        onUploaded("image", example);
+      }
     }
   }
   async function loadExample() {
@@ -38,7 +41,7 @@ export function MediaUpload({ onUploaded }: { onUploaded(workflow: Workflow): vo
       const response = await fetch(exampleImage);
       if (!response.ok) throw new Error("Could not load the example image. Please try again.");
       const file = new File([await response.blob()], "ufo-landing-pads.png", { type: "image/png" });
-      await upload(file);
+      await upload(file, true);
     } catch (error) {
       setError(error instanceof Error ? error.message : "Could not load the example image. Please try again.");
     } finally { setLoadingExample(false); }

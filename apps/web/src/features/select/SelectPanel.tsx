@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { Box, Button, Checkbox, Chip, IconButton, LinearProgress, Stack, TextField, Typography } from "@mui/material";
+import { useEffect, useId, useState } from "react";
+import { Box, Button, Checkbox, Chip, IconButton, LinearProgress, Portal, Stack, TextField, Typography } from "@mui/material";
 import { canApplyRefinement, hasPendingPoints } from "./useSelectionStore";
 import { useSelectionContext } from "./SelectionContext";
 
@@ -11,11 +11,16 @@ const MOVE_TEXT: SelectPanelText = {
 };
 
 /** Edits the selection in context. Continuing confirms it for the photo workflow, unless `onContinue` takes the ticked subjects. */
-export function SelectPanel({ text = MOVE_TEXT, onContinue }: { text?: SelectPanelText; onContinue?: () => void }) {
+export function SelectPanel({ text = MOVE_TEXT, onContinue, example = false }: { text?: SelectPanelText; onContinue?: () => void; example?: boolean }) {
   const useSelectionStore = useSelectionContext();
   const s = useSelectionStore();
+  const [hintDismissed, setHintDismissed] = useState(false);
+  const hintId = useId();
+  const showHint = example && !hintDismissed && !!s.image && !s.busy && s.selectionView === "find"
+    && !s.text && !s.positive.length && !s.negative.length;
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
+      if (showHint && event.key === "Escape") setHintDismissed(true);
       if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey || event.key.toLowerCase() !== "z") return;
       if (event.target instanceof Element && event.target.closest('input:not([type="checkbox"]):not([type="radio"]), textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]')) return;
       const state = useSelectionStore.getState();
@@ -27,7 +32,7 @@ export function SelectPanel({ text = MOVE_TEXT, onContinue }: { text?: SelectPan
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [useSelectionStore]);
+  }, [useSelectionStore, showHint]);
   const pending = hasPendingPoints(s);
   const subjects = s.selectionView === "subjects";
   const editing = s.selectionView === "edit";
@@ -69,8 +74,23 @@ export function SelectPanel({ text = MOVE_TEXT, onContinue }: { text?: SelectPan
         <Typography variant="body2" color="text.secondary">{editing ? "Click to include more of this subject. Right-click to exclude. Other subjects stay in place." : text.hint}</Typography>
       </Stack>
       {!editing && <Stack component="form" spacing={1.5} onSubmit={event => { event.preventDefault(); void s.segment(); }}>
-        <TextField label="Find subjects" placeholder="e.g. red car" value={s.text} onChange={event => s.setText(event.target.value)}
-          disabled={!s.image || s.busy} inputProps={{ maxLength: 160 }} fullWidth />
+        {showHint && <Portal><Box aria-hidden="true" sx={{ position: "fixed", inset: 0, bgcolor: "rgba(0, 0, 0, .3)",
+          zIndex: theme => theme.zIndex.modal, pointerEvents: "none" }} /></Portal>}
+        <Box sx={{ position: "relative", ...(showHint && { zIndex: theme => theme.zIndex.modal + 1,
+          bgcolor: "background.paper", borderRadius: 1, outline: "2px solid", outlineColor: "primary.main",
+          boxShadow: "0 0 0 6px rgba(242, 255, 89, .12)" }) }}>
+          <TextField label="Find subjects" placeholder="e.g. red car" value={s.text}
+            onChange={event => { setHintDismissed(true); s.setText(event.target.value); }}
+            disabled={!s.image || s.busy} inputProps={{ maxLength: 160, "aria-describedby": showHint ? hintId : undefined }} fullWidth />
+          {showHint && <Box sx={{ position: "absolute", top: "100%", left: 0, right: 0, mt: 2,
+            display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, pl: 2, pr: 1, py: 1,
+            bgcolor: "primary.main", color: "primary.contrastText", borderRadius: 1, boxShadow: 4,
+            "&::before": { content: '""', position: "absolute", top: -6, left: 24, width: 12, height: 12,
+              bgcolor: "primary.main", transform: "rotate(45deg)" } }}>
+            <Typography id={hintId} role="status" variant="body2" sx={{ fontWeight: 600 }}>try typing 'ufo'</Typography>
+            <IconButton size="small" aria-label="Dismiss typing hint" onClick={() => setHintDismissed(true)} sx={{ color: "inherit" }}>×</IconButton>
+          </Box>}
+        </Box>
         <Button type="submit" variant="outlined" disabled={!s.image || s.busy || (s.pointsPending ? !canApplyRefinement(s) : !s.text.trim())}>Find subjects</Button>
       </Stack>}
       {(editing || adding) && <Stack spacing={1.5}>

@@ -22,6 +22,7 @@ let sessionPromise: Promise<unknown> | undefined;
 export function App() {
   const [workflow, setWorkflow] = useState<Workflow>("upload");
   const [lastWorkflow, setLastWorkflow] = useState<Workflow | null>(null);
+  const [example, setExample] = useState(false);
   const [ready, setReady] = useState(false);
   const [startupError, setStartupError] = useState<string | null>(null);
   const [comfyAvailable, setComfyAvailable] = useState<boolean | null>(null);
@@ -55,6 +56,7 @@ export function App() {
       resetFollowSelection();
     }
     setLastWorkflow(null);
+    setExample(false);
     setWorkflow("upload");
   }
 
@@ -106,7 +108,7 @@ export function App() {
     {notice && workflow === "image" && <Typography role="status" color="text.secondary" sx={{ mb: 2, fontSize: 14 }}>{notice}</Typography>}
     {!ready && !startupError && <Typography role="status" sx={{ mb: 2 }}>Starting your session…</Typography>}
     {workflow === "upload" ? <Paper sx={{ p: { xs: 2, md: 3 }, pointerEvents: ready ? "auto" : "none", opacity: ready ? 1 : .45 }} inert={!ready}>
-      <MediaUpload onUploaded={next => { setWorkflow(next); setLastWorkflow(next); }} />
+      <MediaUpload onUploaded={(next, isExample = false) => { setWorkflow(next); setLastWorkflow(next); setExample(isExample); }} />
     </Paper> : <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "minmax(0, 1fr) 360px" }, gap: 3, alignItems: "start",
       pointerEvents: ready ? "auto" : "none", opacity: ready ? 1 : .45 }} inert={!ready}>
       <Paper sx={{ p: { xs: 1.5, md: 2.5 }, overflow: "hidden" }}>
@@ -125,7 +127,7 @@ export function App() {
           </Step>)}
         </Stepper>
         <BackButton to={phase > 0 ? IMAGE_STEPS[phase - 1] : null} disabled={busy || recording} onBack={() => visitPhase(phase - 1 as Phase)} />
-        {phase === 0 ? <SelectPanel /> : phase === 1 ? <IsolatePanel /> : phase === 2 ? <MotionPanel /> : <GeneratePanel />}
+        {phase === 0 ? <SelectPanel example={example} /> : phase === 1 ? <IsolatePanel /> : phase === 2 ? <MotionPanel /> : <GeneratePanel />}
         </>}
       </Paper>
     </Box>}
