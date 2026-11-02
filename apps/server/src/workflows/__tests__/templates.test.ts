@@ -192,7 +192,10 @@ describe("workflow contracts", () => {
     expect(graph["12"]).toMatchObject({ class_type: "ThresholdMask", inputs: { value: 0.5 } });
     expect(graph["13"]).toMatchObject({ class_type: "GrowMask", inputs: { mask: ["12", 0], expand: -16, tapered_corners: true } });
     expect(graph["16"].inputs).toMatchObject({ start_step: 1, end_step: 6, mask: ["13", 0] });
-    expect(graph["18"].inputs).toMatchObject({ scheduler: "simple", steps: 25 });
+    expect(graph["18"]).toEqual({ class_type: "ManualSigmas", inputs: { sigmas: "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0" } });
+    expect(graph["19"].inputs.sampler_name).toBe("lcm");
+    expect(graph["31"]).toMatchObject({ class_type: "LoraLoaderModelOnly", inputs: { model: ["1", 0], lora_name: "pika_h3_flex_fl2va_v1_bf16.safetensors", strength_model: 1 } });
+    expect(graph["15"].inputs.model).toEqual(["31", 0]);
     expect(graph["21"].inputs.latent_image).toEqual(["14", 1]);
     // Core resize nodes preserve the whole frame; frame counts still come from the app.
     expect(Object.values(graph).filter(node => node.class_type === "ImageScale")).toHaveLength(4);
@@ -202,16 +205,15 @@ describe("workflow contracts", () => {
   });
   it("binds animate inputs and splices Spectrum only when asked", async () => {
     const options = { startPath: "/tmp/start.png", referencePath: "/tmp/reference.mp4", maskPath: "/tmp/mask.mp4",
-      size: { width: 1248, height: 704 }, modelSize: { width: 1248, height: 704 }, frames: 175, prompt: "A dog runs.", lockIn: 15, edgeFreedom: 16, seed: 9 };
+      size: { width: 1248, height: 704 }, modelSize: { width: 1248, height: 704 }, frames: 175, prompt: "A dog runs.", lockIn: 6, edgeFreedom: 16, seed: 9 };
     const plain = (await buildAnimateWorkflow(new Comfy(), options)).json as ApiGraph;
     expect(plain["14"].inputs).toMatchObject({ width: 1248, height: 704, length: 175, prompt: "A dog runs." });
     expect(plain[ANIMATE_BINDINGS.grow.node].inputs.expand).toBe(-16);
-    expect(plain["16"].inputs).toMatchObject({ end_step: 15, model: ["30", 0] });
+    expect(plain["16"].inputs).toMatchObject({ end_step: 6, model: ["30", 0] });
     expect(plain).not.toHaveProperty("spectrum");
     const fast = (await buildAnimateWorkflow(new Comfy(), { ...options, spectrum: true })).json as ApiGraph;
     expect(fast.spectrum).toMatchObject({ class_type: "SpectrumApplyMiniMaxH3", inputs: { model: ["30", 0], enabled: true, offline_smoothing_replay: false } });
     expect(fast["16"].inputs.model).toEqual(["spectrum", 0]);
-    expect(fast["18"].inputs.model).toEqual(["spectrum", 0]);
     expect((await loadTemplate("animate"))["16"].inputs.model).toEqual(["30", 0]);
   });
   it("layers sol-attn over Kitchen attention, beneath Spectrum, unless bypassed", async () => {
@@ -219,30 +221,30 @@ describe("workflow contracts", () => {
     expect(graph["15"].inputs.attention).toBe("comfy kitchen attention");
     expect(graph["30"]).toMatchObject({ class_type: "BlockSparseAttention",
       inputs: { model: ["15", 0], selection: "sol-attn", "selection.tau": 1.3, start_percent: 0.2, end_percent: 1 } });
-    expect(graph["18"].inputs.model).toEqual(["30", 0]);
     const options = { startPath: "/tmp/start.png", referencePath: "/tmp/reference.mp4", maskPath: "/tmp/mask.mp4",
       size: { width: 864, height: 480 }, modelSize: { width: 864, height: 480 }, frames: 124, prompt: "A dog runs.", lockIn: 6, edgeFreedom: 16, seed: 9 };
     const dense = (await buildAnimateWorkflow(new Comfy(), { ...options, sol: false })).json as ApiGraph;
     expect(dense).not.toHaveProperty("30");
     expect(dense["16"].inputs.model).toEqual(["15", 0]);
-    expect(dense["18"].inputs.model).toEqual(["15", 0]);
     const denseSpectrum = (await buildAnimateWorkflow(new Comfy(), { ...options, sol: false, spectrum: true })).json as ApiGraph;
     expect(denseSpectrum.spectrum.inputs.model).toEqual(["15", 0]);
-    expect(denseSpectrum["18"].inputs.model).toEqual(["spectrum", 0]);
+    expect(denseSpectrum["16"].inputs.model).toEqual(["spectrum", 0]);
   });
   it("layers sol-attn over Kitchen attention in inpainting unless bypassed", async () => {
     const graph = await loadTemplate("inpaint");
     expect(graph["19"].inputs.attention).toBe("comfy kitchen attention");
     expect(graph["35"]).toMatchObject({ class_type: "BlockSparseAttention", inputs: { model: ["19", 0], selection: "sol-attn" } });
+    expect(graph["36"]).toMatchObject({ class_type: "LoraLoaderModelOnly", inputs: { model: ["1", 0], lora_name: "pika_h3_flex_ref2va_v1_bf16.safetensors", strength_model: 1 } });
+    expect(graph["19"].inputs.model).toEqual(["36", 0]);
+    expect(graph["21"]).toEqual({ class_type: "ManualSigmas", inputs: { sigmas: "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0" } });
+    expect(graph["22"].inputs.sampler_name).toBe("lcm");
     const options = { sourcePath: "/tmp/source.mp4", maskPath: "/tmp/mask.mp4",
       size: { width: 864, height: 480 }, modelSize: { width: 864, height: 480 }, frames: 124, prompt: "A bird flies.", seed: 42, feather: 16, audio: "replace" as const };
     const sol = (await buildInpaintWorkflow(new Comfy(), options)).json as ApiGraph;
     expect(sol[INPAINT_MODEL.guider.node].inputs.model).toEqual(["35", 0]);
-    expect(sol[INPAINT_MODEL.scheduler.node].inputs.model).toEqual(["35", 0]);
     const dense = (await buildInpaintWorkflow(new Comfy(), { ...options, sol: false })).json as ApiGraph;
     expect(dense).not.toHaveProperty("35");
     expect(dense[INPAINT_MODEL.guider.node].inputs.model).toEqual(["19", 0]);
-    expect(dense[INPAINT_MODEL.scheduler.node].inputs.model).toEqual(["19", 0]);
     for (const node of Object.values(dense)) {
       for (const value of Object.values(node.inputs)) if (Array.isArray(value)) expect(dense).toHaveProperty(String(value[0]));
     }

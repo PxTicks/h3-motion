@@ -12,8 +12,10 @@ checkpoint. Isolation also requires the Qwen diffusion model, Qwen3-VL encoder
 and Qwen VAE listed in the [README](../README.md#2-models); photo generation
 requires the fl2va MiniMax H3 model and video inpainting the ref2va one, each
 with the shared H3 text encoder and VAEs. Both
-H3 workflows use Comfy Kitchen INT8 attention, which needs an NVIDIA or AMD
-GPU. Core sol-attn sparse attention (`BlockSparseAttention`) is layered on top
+H3 workflows load the matching Pika Flex turbo LoRA (`pika_h3_flex_fl2va_v1` or
+`pika_h3_flex_ref2va_v1`) and sample six `lcm` steps on manual sigmas
+(1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0). Both use Comfy Kitchen
+INT8 attention, which needs an NVIDIA or AMD GPU. Core sol-attn sparse attention (`BlockSparseAttention`) is layered on top
 at the node's defaults: from 20% of sampling, long sequences run sparse and
 everything else falls back to Kitchen attention. Set `H3M_SOL=0` to turn it
 off; the node is upstream since September 2026. Set `H3M_SPECTRUM=1` to splice in the third-party
@@ -58,8 +60,10 @@ by the feather radius (16 px by default).
 
 Compared with vlo's reference-based inpainting workflow, this shares the ref2va
 model, source-video VAE encoding, a joint video/audio latent, `vloMaskToLatentMask`,
-masked sampling, and a 20-step simple scheduler with the `er_sde` sampler. Important
-differences:
+and masked sampling. Important differences:
+
+- The app samples six `lcm` steps with the Pika Flex ref2va turbo LoRA. vlo uses a
+  20-step simple scheduler with the `er_sde` sampler and no LoRA.
 
 - The app uses the whole frame resized to 480p or 768p. vlo defaults to a crop around the
   mask with 10% padding, then positions and masks the generated patch in its editor.

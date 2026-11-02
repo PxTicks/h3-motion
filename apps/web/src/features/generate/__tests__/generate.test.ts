@@ -49,7 +49,7 @@ describe("generation inputs", () => {
   });
   it("changes its signature with anything that changes the video, and treats a blank prompt as automatic", () => {
     const base = resolveInputs(currentParts(settings))!;
-    expect(resolveInputs(currentParts({ ...settings, lockIn: 9 }))!.signature).not.toBe(base.signature);
+    expect(resolveInputs(currentParts({ ...settings, lockIn: 5 }))!.signature).not.toBe(base.signature);
     expect(resolveInputs(currentParts({ ...settings, edgeFreedom: 32 }))!.signature).not.toBe(base.signature);
     expect(resolveInputs(currentParts({ ...settings, prompt: "A ball rolls." }))!.promptFields.mainPrompt).toBe("A ball rolls.");
     expect(resolveInputs(currentParts({ ...settings, prompt: "   " }))!.signature).toBe(base.signature);
@@ -206,9 +206,9 @@ describe("generate guards", () => {
     expect(request.prompt).toContain("overall_soundscape: Soft rolling sounds.");
     expect(request.prompt).toContain("non_diegetic_music: Quiet piano music.");
   });
-  it("defaults lock-in to 9 and allows every whole step from 2 to 15", () => {
-    expect(useGenerateStore.getState().lockIn).toBe(9);
-    for (const [input, expected] of [[0, 2], [2, 2], ...Array.from({ length: 13 }, (_, i) => [i + 3, i + 3]), [7.6, 8], [17, 15]]) {
+  it("defaults lock-in to 3 and allows every whole step from 2 to 6", () => {
+    expect(useGenerateStore.getState().lockIn).toBe(3);
+    for (const [input, expected] of [[0, 2], [2, 2], ...Array.from({ length: 4 }, (_, i) => [i + 3, i + 3]), [3.6, 4], [17, 6]]) {
       useGenerateStore.getState().setLockIn(input);
       expect(useGenerateStore.getState().lockIn).toBe(expected);
     }

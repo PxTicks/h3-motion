@@ -10,7 +10,7 @@ import type { AnimateRequest } from "@h3-motion/shared";
 import { createApp } from "../app.js";
 import { SessionStore } from "../sessions.js";
 import { encodeMask } from "../media/masks.js";
-import { ANIMATE_BINDINGS, ANIMATE_MODEL, ANIMATE_OUTPUT, ANIMATE_SAMPLER } from "../workflows/templates.js";
+import { ANIMATE_BINDINGS, ANIMATE_OUTPUT, ANIMATE_SAMPLER, TURBO_SIGMAS } from "../workflows/templates.js";
 import { comfyLow } from "../comfy.js";
 import { createManagedJob, runWorkflow, stageProgress } from "../jobs/runtime.js";
 import type { ApiGraph } from "../workflows/templates.js";
@@ -70,7 +70,7 @@ describe("animate job", () => {
     expect(graph["29"].inputs).toMatchObject({ width: 686, height: 480, crop: "disabled" });
     expect(session.job!.snapshot).toMatchObject({ status: "completed", animation: { width: 686, height: 480 } });
   });
-  it.each([2, 6, 8, 15])("submits lock-in %i with the request's settings and serves the generated video with byte ranges", async lockIn => {
+  it.each([2, 3, 6])("submits lock-in %i with the request's settings and serves the generated video with byte ranges", async lockIn => {
     const { app, client, session, cookie, request } = await setup();
     const video = new Uint8Array(await fixture(124));
     const submit = vi.spyOn(client, "submit").mockResolvedValue(remote(video));
@@ -80,7 +80,7 @@ describe("animate job", () => {
     const json = submit.mock.calls[0][0].json as ApiGraph;
     expect(json[ANIMATE_BINDINGS.prompt.node].inputs).toMatchObject({ prompt: "A dog runs.", width: 480, height: 480, length: 124 });
     expect(json[ANIMATE_BINDINGS.lockIn.node].inputs).toMatchObject({ start_step: 1, end_step: lockIn });
-    expect(json[ANIMATE_MODEL.scheduler.node].inputs.steps).toBe(25);
+    expect(String(json[TURBO_SIGMAS.animate.node].inputs.sigmas).split(",")).toHaveLength(7);
     expect(json[ANIMATE_BINDINGS.seed.node].inputs.noise_seed).toBe(7);
     expect(json[ANIMATE_BINDINGS.grow.node].inputs.expand).toBe(-16);
     expect(session.job!.snapshot).toMatchObject({ status: "completed", stage: "animate", animation: { seed: 7, frames: 124, lockIn } });
@@ -93,10 +93,10 @@ describe("animate job", () => {
     expect(partial.headers.get("content-range")).toBe(`bytes 10-19/${video.length}`);
     expect(new Uint8Array(await partial.arrayBuffer())).toEqual(video.subarray(10, 20));
   });
-  it("rejects lock-in values outside 2–15 or fractional steps before submitting", async () => {
+  it("rejects lock-in values outside 2–6 or fractional steps before submitting", async () => {
     const { app, client, cookie, request } = await setup();
     const submit = vi.spyOn(client, "submit");
-    for (const lockIn of [1, 8.5, 16]) {
+    for (const lockIn of [1, 2.5, 7]) {
       expect((await upload(app, cookie, { ...request, lockIn })).status).toBe(400);
     }
     expect(submit).not.toHaveBeenCalled();

@@ -170,7 +170,7 @@
     "class_type": "ModelAttentionBackend",
     "inputs": {
       "model": [
-        "1",
+        "36",
         0
       ],
       "attention": "comfy kitchen attention"
@@ -190,21 +190,15 @@
     }
   },
   "21": {
-    "class_type": "BasicScheduler",
+    "class_type": "ManualSigmas",
     "inputs": {
-      "model": [
-        "35",
-        0
-      ],
-      "scheduler": "simple",
-      "steps": 20,
-      "denoise": 1
+      "sigmas": "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"
     }
   },
   "22": {
     "class_type": "KSamplerSelect",
     "inputs": {
-      "sampler_name": "er_sde"
+      "sampler_name": "lcm"
     }
   },
   "23": {
@@ -386,6 +380,17 @@
       "extra_tokens": 256,
       "sink_conditioning": "exact_kv_and_rows",
       "verbose": false
+    }
+  },
+  "36": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "lora_name": "pika_h3_flex_ref2va_v1_bf16.safetensors",
+      "strength_model": 1
     }
   }
 }

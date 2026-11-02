@@ -68,20 +68,26 @@ export const ANIMATE_BINDINGS = {
   lockIn: { node: "16", input: "end_step", classType: "vloTimeToMove" },
   seed: { node: "20", input: "noise_seed", classType: "RandomNoise" },
 } satisfies Record<string, Binding>;
-/** The animate model chain: Kitchen attention → sol-attn → (Spectrum) → TTM and the scheduler. */
+/**
+ * The animate model chain: Pika Flex turbo LoRA → Kitchen attention → sol-attn → (Spectrum) → TTM. The LoRA samples
+ * with LCM over six manual sigmas, so no scheduler reads the model.
+ */
 export const ANIMATE_MODEL = {
+  lora: { node: "31", input: "model", classType: "LoraLoaderModelOnly" },
   base: { node: "15", input: "model", classType: "ModelAttentionBackend" },
   sol: { node: "30", input: "model", classType: "BlockSparseAttention" },
   ttm: { node: "16", input: "model", classType: "vloTimeToMove" },
-  scheduler: { node: "18", input: "model", classType: "BasicScheduler" },
 } satisfies Record<string, Binding>;
-/** The inpaint model chain: Kitchen attention → sol-attn → guider and scheduler. */
+/** The inpaint model chain: Pika Flex turbo LoRA → Kitchen attention → sol-attn → guider. */
 export const INPAINT_MODEL = {
+  lora: { node: "36", input: "model", classType: "LoraLoaderModelOnly" },
   base: { node: "19", input: "model", classType: "ModelAttentionBackend" },
   sol: { node: "35", input: "model", classType: "BlockSparseAttention" },
   guider: { node: "20", input: "model", classType: "BasicGuider" },
-  scheduler: { node: "21", input: "model", classType: "BasicScheduler" },
 } satisfies Record<string, Binding>;
+/** The turbo LoRAs' schedule: six LCM steps, fed to the sampler as manual sigmas. */
+export const TURBO_SIGMAS = { animate: { node: "18", input: "sigmas", classType: "ManualSigmas" },
+  inpaint: { node: "21", input: "sigmas", classType: "ManualSigmas" } } satisfies Record<string, Binding>;
 export const ANIMATE_OUTPUT = "25";
 /** The sampler, whose steps are most of a run. */
 export const ANIMATE_SAMPLER = { node: "21", input: "sigmas", classType: "SamplerCustomAdvanced" } satisfies Binding;
@@ -148,10 +154,10 @@ export async function buildInpaintWorkflow(client: Comfy, options: {
   audio: InpaintAudioMode;
 }): Promise<Workflow> {
   const graph = await loadTemplate("inpaint");
-  assertBindings(graph, [...Object.values(INPAINT_BINDINGS), ...Object.values(INPAINT_MODEL), INPAINT_SAMPLER, INPAINT_COMPOSITE, INPAINT_VIDEO,
+  assertBindings(graph, [...Object.values(INPAINT_BINDINGS), ...Object.values(INPAINT_MODEL), INPAINT_SAMPLER, TURBO_SIGMAS.inpaint, INPAINT_COMPOSITE, INPAINT_VIDEO,
     { node: INPAINT_SOURCE_COMPONENTS, input: "video", classType: "GetVideoComponents" }, { node: INPAINT_OUTPUT, input: "video", classType: "SaveVideo" }]);
   setVideoGeometry(graph, ["30", "31"], "34", options.modelSize, options.size);
-  if (options.sol === false) bypassSol(graph, INPAINT_MODEL, [INPAINT_MODEL.guider, INPAINT_MODEL.scheduler]);
+  if (options.sol === false) bypassSol(graph, INPAINT_MODEL, [INPAINT_MODEL.guider]);
   if (options.feather > 0) {
     // Blurs the hard composite mask, as isolation feathers its plate, so the patch fades into the source.
     const { feather } = options, mask = graph[INPAINT_COMPOSITE.node].inputs[INPAINT_COMPOSITE.input];
@@ -241,9 +247,9 @@ export async function buildAnimateWorkflow(client: Comfy, options: {
   prompt: string; lockIn: number; edgeFreedom: number; seed: number; spectrum?: boolean; sol?: boolean;
 }): Promise<Workflow> {
   const graph = await loadTemplate("animate");
-  assertBindings(graph, [...Object.values(ANIMATE_BINDINGS), ...Object.values(ANIMATE_MODEL), ANIMATE_SAMPLER]);
+  assertBindings(graph, [...Object.values(ANIMATE_BINDINGS), ...Object.values(ANIMATE_MODEL), ANIMATE_SAMPLER, TURBO_SIGMAS.animate]);
   setVideoGeometry(graph, ["26", "27", "28"], "29", options.modelSize, options.size);
-  if (options.sol === false) bypassSol(graph, ANIMATE_MODEL, [ANIMATE_MODEL.ttm, ANIMATE_MODEL.scheduler]);
+  if (options.sol === false) bypassSol(graph, ANIMATE_MODEL, [ANIMATE_MODEL.ttm]);
   if (options.spectrum) {
     // vlo's Spectrum settings are the node's defaults; offline smoothing replay is opted out of explicitly.
     // It wraps whatever TTM reads (sol-attn unless bypassed); Spectrum v0.2.27+ audits core sparse attention beneath it.
@@ -251,7 +257,6 @@ export async function buildAnimateWorkflow(client: Comfy, options: {
       degree: 1, ridge_lambda: 0.1, window_size: 2, flex_window: 0.75, warmup_steps: 1, tail_actual_steps: 1, max_history: 8, debug: false,
       history_storage: "system_ram", bootstrap_first_forecast: true, offline_smoothing_replay: false } };
     graph[ANIMATE_MODEL.ttm.node].inputs.model = ["spectrum", 0];
-    graph[ANIMATE_MODEL.scheduler.node].inputs.model = ["spectrum", 0];
   }
   const workflow = client.workflows.fromJson(graph);
   const values: Record<keyof typeof ANIMATE_BINDINGS, unknown> = {

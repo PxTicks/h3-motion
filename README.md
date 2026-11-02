@@ -73,6 +73,8 @@ hf download Comfy-Org/MiniMax-H3 diffusion_models/minimax_h3_ref2va_pruned_int8_
 hf download Comfy-Org/MiniMax-H3 text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors --revision 912b6e38b2092ec4d2e86d24183e0d59ea059d48 --local-dir models
 hf download Comfy-Org/MiniMax-H3 vae/minimax_h3_video_vae_int8_convrot.safetensors --revision 912b6e38b2092ec4d2e86d24183e0d59ea059d48 --local-dir models
 hf download Comfy-Org/MiniMax-H3 vae/minimax_h3_audio_vae_fp32.safetensors --revision 912b6e38b2092ec4d2e86d24183e0d59ea059d48 --local-dir models
+hf download Comfy-Org/MiniMax-H3 loras/pika_h3_flex_fl2va_v1_bf16.safetensors --revision 912b6e38b2092ec4d2e86d24183e0d59ea059d48 --local-dir models
+hf download Comfy-Org/MiniMax-H3 loras/pika_h3_flex_ref2va_v1_bf16.safetensors --revision 912b6e38b2092ec4d2e86d24183e0d59ea059d48 --local-dir models
 ```
 
 The workflow templates use these exact filenames. If you keep models in other

@@ -8,7 +8,7 @@ const nodes = [
   "QwenImage21Cache", "GrowMask", "ImageBlur", "ImageToMask", "ImageCompositeMasked", "ImageScale",
   "LoadVideo", "GetVideoComponents", "MiniMaxH3ImageToVideo", "vloTimeToMove", "CreateVideo", "SaveVideo",
   "MiniMaxH3ReferenceToVideo", "vloMaskToLatentMask", "SetLatentNoiseMask", "LTXVSeparateAVLatent", "LTXVConcatAVLatent",
-  "ModelAttentionBackend", "BlockSparseAttention",
+  "ModelAttentionBackend", "BlockSparseAttention", "LoraLoaderModelOnly", "ManualSigmas",
 ];
 const models = [
   ["CheckpointLoaderSimple", "ckpt_name", "sam3.1_multiplex_fp16.safetensors"],
@@ -20,6 +20,8 @@ const models = [
   ["CLIPLoader", "clip_name", "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"],
   ["VAELoader", "vae_name", "minimax_h3_video_vae_int8_convrot.safetensors"],
   ["VAELoader", "vae_name", "minimax_h3_audio_vae_fp32.safetensors"],
+  ["LoraLoaderModelOnly", "lora_name", "pika_h3_flex_fl2va_v1_bf16.safetensors"],
+  ["LoraLoaderModelOnly", "lora_name", "pika_h3_flex_ref2va_v1_bf16.safetensors"],
 ] as const;
 
 let failures = 0;
