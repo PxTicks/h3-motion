@@ -1,12 +1,18 @@
+import { useId, useState } from "react";
 import { Accordion, AccordionDetails, AccordionSummary, Alert, Box, Button, LinearProgress, Slider, Stack, TextField, Tooltip, Typography } from "@mui/material";
 import { EDGE_FREEDOM } from "@h3-motion/shared";
 import { useGenerationInputs } from "./inputs";
 import { useCurrentResult, useGenerateStore, usePromptSettings } from "./useGenerateStore";
 import { PromptModeToggle } from "../shell/PromptModeToggle";
+import { ExampleBackdrop, ExampleHint } from "../../components/ExampleHint";
 
 const EDGE_FREEDOM_HELP = "How far inside its outline the subject is released from your animation. More freedom lets the model redraw the subject's edges, which helps when part of it is cut off, such as an arm reaching in from off-screen. Automatic by default: small subjects get less, so enough of them stays held to follow the path.";
 
-export function GeneratePanel() {
+export function GeneratePanel({ example = false }: { example?: boolean }) {
+  const [promptHintDismissed, setPromptHintDismissed] = useState(false);
+  const [generateHintDismissed, setGenerateHintDismissed] = useState(false);
+  const promptHintId = useId();
+  const generateHintId = useId();
   const edgeFreedom = useGenerateStore(s => s.edgeFreedom);
   const seed = useGenerateStore(s => s.seed);
   const prompt = useGenerateStore(s => s.prompt);
@@ -25,11 +31,14 @@ export function GeneratePanel() {
   const inputs = useGenerationInputs(usePromptSettings());
   const result = useCurrentResult();
   const busy = status !== "idle";
+  const showPromptHint = example && !promptHintDismissed && !busy && !!inputs && !result && promptMode === "formatted";
+  const showGenerateHint = example && !generateHintDismissed && !busy && !!inputs?.prompt && !result;
   const effectiveEdgeFreedom = inputs?.edgeFreedom ?? edgeFreedom ?? EDGE_FREEDOM.default;
   const statusText = status === "rendering" ? `Rendering motion frames… ${Math.round((progress ?? 0) * 100)}%`
     : status === "uploading" ? "Uploading the motion videos…" : job?.message ?? "Waiting for ComfyUI…";
 
   return <Stack spacing={2.5}>
+    {(showPromptHint || showGenerateHint) && <ExampleBackdrop />}
     <Stack spacing={1}>
       <Typography variant="h2">Bring it to life</Typography>
       <Typography variant="body2" color="text.secondary">Write a detailed prompt to bring your animation to life.</Typography>
@@ -37,8 +46,13 @@ export function GeneratePanel() {
     {promptMode === "raw" ? <TextField multiline minRows={12} label="Raw prompt" value={rawPrompt} disabled={busy || !inputs}
       onChange={event => setRawPrompt(event.target.value)} slotProps={{ htmlInput: { maxLength: 4000 } }}
       helperText="Sent as written, so it doesn't follow changes to the motion." /> : <>
-      <TextField multiline minRows={6} label="Main prompt" value={prompt ?? inputs?.promptFields.mainPrompt ?? ""} disabled={busy || !inputs}
-        onChange={event => setPrompt(event.target.value)} slotProps={{ htmlInput: { maxLength: 3000 } }} />
+      <ExampleHint active={showPromptHint} descriptionId={promptHintId} dim={false} reserveSpace
+        message="The prompt fills in automatically, but editing it is recommended to correct issues or add details."
+        onDismiss={() => setPromptHintDismissed(true)}>
+        <TextField multiline minRows={6} fullWidth label="Main prompt" value={prompt ?? inputs?.promptFields.mainPrompt ?? ""} disabled={busy || !inputs}
+          onChange={event => { setPromptHintDismissed(true); setPrompt(event.target.value); }}
+          slotProps={{ htmlInput: { maxLength: 3000, "aria-describedby": showPromptHint ? promptHintId : undefined } }} />
+      </ExampleHint>
       <TextField multiline minRows={3} label="Sound effects [Optional]" value={soundEffects ?? inputs?.promptFields.soundEffects ?? ""} disabled={busy || !inputs}
         onChange={event => setSoundEffects(event.target.value)} slotProps={{ htmlInput: { maxLength: 500 } }} />
       <TextField multiline minRows={3} label="Music [Optional]" value={music} disabled={busy || !inputs}
@@ -49,8 +63,15 @@ export function GeneratePanel() {
       <LinearProgress variant={progress == null ? "indeterminate" : "determinate"} value={(progress ?? 0) * 100} />
       <Typography variant="caption" color="text.secondary">Generation usually takes several minutes. Keep this tab open.</Typography>
       <Button onClick={() => void cancel()}>Cancel</Button>
-    </Stack> : <Button variant="contained" size="large" fullWidth disabled={!inputs?.prompt} onClick={() => void generate()}
-      sx={{ minHeight: 56, fontFamily: "Barlow Condensed, sans-serif", fontSize: 22, letterSpacing: ".14em" }}>GENERATE</Button>}
+    </Stack> : <ExampleHint active={showGenerateHint} descriptionId={generateHintId} message="click me!"
+      onDismiss={() => setGenerateHintDismissed(true)} dim={false} reserveSpace pill>
+      <Button variant="contained" size="large" fullWidth disabled={!inputs?.prompt}
+        aria-describedby={showGenerateHint ? generateHintId : undefined} onClick={() => {
+          setPromptHintDismissed(true);
+          setGenerateHintDismissed(true);
+          void generate();
+        }} sx={{ minHeight: 56, fontFamily: "Barlow Condensed, sans-serif", fontSize: 22, letterSpacing: ".14em" }}>GENERATE</Button>
+    </ExampleHint>}
     {error && <Alert severity="error" onClose={clearError}>{error}</Alert>}
     {notice && !busy && <Typography role="status" variant="body2" color="text.secondary">{notice}</Typography>}
     {result && <Stack spacing={1}>
