@@ -127,7 +127,7 @@ export function App() {
           </Step>)}
         </Stepper>
         <BackButton to={phase > 0 ? IMAGE_STEPS[phase - 1] : null} disabled={busy || recording} onBack={() => visitPhase(phase - 1 as Phase)} />
-        {phase === 0 ? <SelectPanel example={example} /> : phase === 1 ? <IsolatePanel /> : phase === 2 ? <MotionPanel /> : <GeneratePanel />}
+        {phase === 0 ? <SelectPanel example={example} /> : phase === 1 ? <IsolatePanel example={example} /> : phase === 2 ? <MotionPanel /> : <GeneratePanel />}
         </>}
       </Paper>
     </Box>}

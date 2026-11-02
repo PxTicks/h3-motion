@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button, Chip, LinearProgress, Stack, TextField, Typography } from "@mui/material";
+import { ExampleHint } from "../../components/ExampleHint";
 import { canRecoverIsolation, currentIsolation, useSelectionStore } from "../select";
 
-export function IsolatePanel() {
+export function IsolatePanel({ example = false }: { example?: boolean }) {
   const result = useSelectionStore(currentIsolation);
   const recovery = useSelectionStore(canRecoverIsolation);
   const image = useSelectionStore(s => s.image);
@@ -15,6 +16,9 @@ export function IsolatePanel() {
   const visitPhase = useSelectionStore(s => s.visitPhase);
   const selectionKey = `${image?.id}:${mask?.id}:${result?.plate.id}`;
   const [draft, setDraft] = useState<{ selectionKey: string; instruction: string } | null>(null);
+  const [hintDismissed, setHintDismissed] = useState(false);
+  const hintId = useId();
+  const showHint = example && !hintDismissed && !!image && !!mask && !busy && !result;
   const instruction = draft?.selectionKey === selectionKey ? draft.instruction
     : result?.instruction ?? "";
   const showPrompt = !!result || draft?.selectionKey === selectionKey;
@@ -38,12 +42,16 @@ export function IsolatePanel() {
       <Typography variant="caption" color="text.secondary">{job?.stage === "describe" ? "Identifying the subject" : "Creating the background"} · This can take a few minutes.</Typography>
       {job && <Button onClick={() => void cancel()}>Cancel isolation</Button>}
     </Stack>}
-    <Button variant={result ? "outlined" : "contained"} size="large" disabled={busy} onClick={() => {
-      const prompt = instruction.trim();
-      void isolate(prompt === result?.instruction ? undefined : prompt);
-    }}>
-      {result ? "Try again" : "Isolate"}
-    </Button>
+    <ExampleHint active={showHint} descriptionId={hintId} message="click me!" onDismiss={() => setHintDismissed(true)} pill>
+      <Button variant={result ? "outlined" : "contained"} size="large" fullWidth disabled={busy}
+        aria-describedby={showHint ? hintId : undefined} onClick={() => {
+          setHintDismissed(true);
+          const prompt = instruction.trim();
+          void isolate(prompt === result?.instruction ? undefined : prompt);
+        }}>
+        {result ? "Try again" : "Isolate"}
+      </Button>
+    </ExampleHint>
     {!result && recovery && <Typography variant="caption" color="text.secondary">Isolation failed. Retry to generate a removal prompt from the highlighted subject.</Typography>}
     {result && <Button variant="contained" size="large" disabled={busy} onClick={() => visitPhase(2)}>Continue →</Button>}
   </Stack>;
