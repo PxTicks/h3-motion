@@ -23,12 +23,12 @@ function usePlayback() {
   }, [playing, frames]);
 }
 
-export function MotionEditor({ readOnly = false }: { readOnly?: boolean }) {
+export function MotionEditor({ readOnly = false, example = false }: { readOnly?: boolean; example?: boolean }) {
   usePlayback();
   useMotionShortcuts(useMotionStore.getState, { readOnly });
   useEffect(() => () => useMotionStore.getState().leave(), []);
   return <Stack spacing={2}>
-    <MotionCanvas readOnly={readOnly} />
+    <MotionCanvas readOnly={readOnly} example={example} />
     <MotionTimeline readOnly={readOnly} />
   </Stack>;
 }

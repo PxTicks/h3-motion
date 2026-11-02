@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { Alert, Box, CircularProgress } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import { buildMotionCurve, isStartKey, scaleOf } from "@h3-motion/shared";
 import type { Point, Pose, TimedSample } from "@h3-motion/shared";
 import { useSelectionStore } from "../select";
+import { ExampleBubble } from "../../components/ExampleHint";
 import { drawGhost, drawSceneReference, subjectKeyOf } from "./subjectLayers";
 import { useGhosts } from "./useGhosts";
 import { hitsLayers, motionTargetAt } from "./motionHitTest";
@@ -22,7 +23,7 @@ type Drag = { pointerId: number; origin: Point; start: Point } & (
   | { kind: "scale"; handle: Handle; pose: Pose; cursor: ResizeCursor });
 
 /** Composites all subjects; read-only previews match the frames sent to generation. */
-export function MotionCanvas({ readOnly = false }: { readOnly?: boolean }) {
+export function MotionCanvas({ readOnly = false, example = false }: { readOnly?: boolean; example?: boolean }) {
   const image = useSelectionStore(s => s.image);
   const mask = useSelectionStore(s => s.mask);
   const motion = useMotionStore(s => s.motion);
@@ -42,12 +43,25 @@ export function MotionCanvas({ readOnly = false }: { readOnly?: boolean }) {
   const [scale, setScale] = useState(1);
   const [live, setLive] = useState<Point | null>(null);
   const [hover, setHover] = useState<CanvasHover>(null);
+  const [hintDismissed, setHintDismissed] = useState(false);
+  const hintBubble = useRef<HTMLDivElement>(null);
+  const [hintHeight, setHintHeight] = useState(64);
+  const hintId = useId();
   const showGhosts = useGhosts(s => s.show);
   const tracks = useMemo(() => (subjects.length ? subjects : motion && layers
     ? [{ id: mask?.id ?? "subject", name: "Subject", color: SUBJECT_COLORS[0], motion, layers }] : [])
     .map(subject => ({ ...subject, curve: buildMotionCurve(subject.motion) })), [subjects, motion, layers, mask?.id]);
   const active = tracks.find(subject => subject.id === activeSubjectId) ?? tracks[0];
   const ready = !!layers && tracks.length > 0 && !!image && !!mask && subjectKey === subjectKeyOf(image.id, mask.id);
+  const showExampleHint = example && !hintDismissed && ready && !readOnly && !playing && !recording && active?.motion.keys.length === 1;
+
+  useEffect(() => {
+    const element = hintBubble.current;
+    if (!showExampleHint || !element) return;
+    const observer = new ResizeObserver(() => setHintHeight(element.getBoundingClientRect().height));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [showExampleHint]);
 
   useEffect(() => {
     const element = overlay.current;
@@ -86,6 +100,7 @@ export function MotionCanvas({ readOnly = false }: { readOnly?: boolean }) {
   }
 
   function startDrag(event: ReactPointerEvent<SVGSVGElement>, next: Drag) {
+    setHintDismissed(true);
     drag.current = next;
     event.currentTarget.setPointerCapture(event.pointerId);
   }
@@ -178,11 +193,20 @@ export function MotionCanvas({ readOnly = false }: { readOnly?: boolean }) {
   const selected = active?.motion.keys.find(key => key.id === selectedKeyId);
   const box = active && showOverlay && !(playhead === 0 && active.motion.keys.length > 1)
     ? { pose: poseAt(playhead), bounds: active.layers.bounds, anchor: active.motion.anchor } : null;
+  // Keep the bubble beside the subject, with its arrow aligned to the subject's centre as the canvas resizes.
+  const hintWidth = layers ? Math.min(420, layers.width / scale - 24) : 420;
+  const hintX = active ? active.motion.anchor.x / scale : 0;
+  const hintLeft = layers ? Math.max(12, Math.min(hintX - 32, layers.width / scale - hintWidth - 12)) : 12;
+  const hintTop = active && layers ? Math.max(12, Math.min(
+    (active.layers.bounds.y + active.layers.bounds.height) / scale + 12,
+    layers.height / scale - hintHeight - 12,
+  )) : 12;
 
   return <Box sx={{ position: "relative", borderRadius: 1, overflow: "hidden", width: "100%", maxWidth: image.height > image.width ? 420 : "100%",
     mx: "auto", bgcolor: "#19151f", aspectRatio: `${image.width}/${image.height}` }}>
     {layers && <Surface ref={canvas} width={layers.width} height={layers.height} aria-hidden />}
     {layers && <svg ref={overlay} viewBox={`0 0 ${layers.width} ${layers.height}`} role={readOnly ? "img" : "application"}
+      aria-describedby={showExampleHint ? hintId : undefined}
       aria-label={readOnly ? "Motion preview showing the frames that will be generated." : "Motion editor. Click a subject to select it. Drag to create or adjust its path. Clear its path to record again. Drag diamond keys to adjust positions. Drag the box corners to resize the subject, or its edges to stretch or flip it."}
       style={{ position: "absolute", inset: 0, width: "100%", height: "100%", touchAction: "none", cursor }}
       {...(readOnly ? {} : { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp,
@@ -191,7 +215,11 @@ export function MotionCanvas({ readOnly = false }: { readOnly?: boolean }) {
       {box && active && <ResizeBox {...box} color={active.color} scale={scale} />}
     </svg>}
     {showOverlay && selected && layers && active && <KeyBadge keyframe={selected} anchor={active.motion.anchor} color={active.color} size={layers} />}
-    {ready && active && !playing && !recording && !readOnly && active.motion.keys.length === 1
+    {showExampleHint && <ExampleBubble ref={hintBubble} descriptionId={hintId}
+      message="drag me to a landing pad - feel free to give me a loop!" onDismiss={() => setHintDismissed(true)}
+      sx={{ top: hintTop, left: hintLeft, width: hintWidth, pointerEvents: "none",
+        "&::before": { left: Math.max(16, Math.min(hintX - hintLeft - 6, hintWidth - 28)) } }} />}
+    {ready && active && !playing && !recording && !readOnly && !showExampleHint && active.motion.keys.length === 1
       && <CanvasHint>{scrubbed ? `Drag to place a key at ${formatSeconds(playhead)}.` : "Drag to create a path."}</CanvasHint>}
     {recording && <RecordingBadge />}
     {!ready && !error && <Box sx={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}><CircularProgress size={28} /></Box>}

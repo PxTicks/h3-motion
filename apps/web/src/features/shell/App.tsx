@@ -113,7 +113,7 @@ export function App() {
       pointerEvents: ready ? "auto" : "none", opacity: ready ? 1 : .45 }} inert={!ready}>
       <Paper sx={{ p: { xs: 1.5, md: 2.5 }, overflow: "hidden" }}>
         {workflow === "video" ? <InpaintEditor onRemove={removeUpload} /> : <>
-        {phase === 3 && isolation ? <GenerateStage /> : phase === 2 && isolation ? <MotionEditor />
+        {phase === 3 && isolation ? <GenerateStage /> : phase === 2 && isolation ? <MotionEditor example={example} />
           : phase > 0 && isolation ? <IsolatePreview />
           : <SelectionCanvas mediaAction={<RemoveMediaButton label="Remove image" disabled={busy} onRemove={removeUpload} />} />}
         </>}
