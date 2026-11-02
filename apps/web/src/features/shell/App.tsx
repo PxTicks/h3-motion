@@ -107,9 +107,9 @@ export function App() {
     {inpaintError && workflow !== "image" && <Alert severity="error" onClose={() => useInpaintStore.getState().clearError()} sx={{ mb: 3 }}>{inpaintError}</Alert>}
     {notice && workflow === "image" && <Typography role="status" color="text.secondary" sx={{ mb: 2, fontSize: 14 }}>{notice}</Typography>}
     {!ready && !startupError && <Typography role="status" sx={{ mb: 2 }}>Starting your session…</Typography>}
-    {workflow === "upload" ? <Paper sx={{ p: { xs: 2, md: 3 }, pointerEvents: ready ? "auto" : "none", opacity: ready ? 1 : .45 }} inert={!ready}>
+    {workflow === "upload" ? <Box sx={{ pointerEvents: ready ? "auto" : "none", opacity: ready ? 1 : .45 }} inert={!ready}>
       <MediaUpload onUploaded={(next, isExample = false) => { setWorkflow(next); setLastWorkflow(next); setExample(isExample); }} />
-    </Paper> : <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "minmax(0, 1fr) 360px" }, gap: 3, alignItems: "start",
+    </Box> : <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "minmax(0, 1fr) 360px" }, gap: 3, alignItems: "start",
       pointerEvents: ready ? "auto" : "none", opacity: ready ? 1 : .45 }} inert={!ready}>
       <Paper sx={{ p: { xs: 1.5, md: 2.5 }, overflow: "hidden" }}>
         {workflow === "video" ? <InpaintEditor onRemove={removeUpload} /> : <>
