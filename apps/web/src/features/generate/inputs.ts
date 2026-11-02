@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { buildH3PromptFields, composeH3Prompt, describeMotion, videoGeometry } from "@h3-motion/shared";
+import { autoEdgeFreedom, buildH3PromptFields, composeH3Prompt, describeMotion, videoGeometry } from "@h3-motion/shared";
 import type { VideoTier, FrameSize, H3PromptFields, ImageAsset, IsolationResult, Rect, SubjectMotion } from "@h3-motion/shared";
 import { currentIsolation, useSelectionStore } from "../select";
 import { layersKeyOf, subjectKeyOf, useMotionStore } from "../motion";
@@ -9,7 +9,9 @@ export type Tier = VideoTier;
 interface Parts {
   image: ImageAsset | null; mask: ImageAsset | null; isolation: IsolationResult | null;
   motion: SubjectMotion | null; subjectKey: string | null; bounds: Rect | null;
-  layers: SubjectLayers | null; layersKey: string | null; tier: Tier; lockIn: number; edgeFreedom: number; prompt: string | null;
+  layers: SubjectLayers | null; layersKey: string | null; tier: Tier; lockIn: number; prompt: string | null;
+  /** Null follows the subject's size: see autoEdgeFreedom. */
+  edgeFreedom: number | null;
   subjects: MotionSubject[];
   soundEffects?: string | null; music?: string;
   /** The whole prompt as written in raw mode, sent instead of the fields; null in formatted mode. */
@@ -18,7 +20,9 @@ interface Parts {
 type PromptSettings = Pick<Parts, "tier" | "lockIn" | "edgeFreedom" | "prompt" | "soundEffects" | "music" | "rawPrompt">;
 export interface GenerationInputs {
   image: ImageAsset; mask: ImageAsset; isolation: IsolationResult; motion: SubjectMotion; layers: SubjectLayers;
-  size: FrameSize; lockIn: number; edgeFreedom: number; autoPrompt: string; prompt: string;
+  size: FrameSize; lockIn: number; autoPrompt: string; prompt: string;
+  /** The edge freedom sent: the chosen one, or the automatic one if none is chosen. */
+  edgeFreedom: number; autoEdgeFreedom: number;
   promptFields: H3PromptFields;
   /** Changes whenever anything that affects the video changes, except the seed. */
   signature: string;
@@ -30,7 +34,10 @@ export function resolveInputs(parts: Parts): GenerationInputs | null {
   const motion = subjects[0]?.motion ?? parts.motion;
   if (!image || !mask || !isolation || !motion || !layers || parts.subjectKey !== subjectKeyOf(image.id, mask.id)
     || parts.layersKey !== layersKeyOf(image.url, mask.url, isolation.plate.url)) return null;
-  const size = videoGeometry(image, parts.tier).output;
+  const { output: size, generation } = videoGeometry(image, parts.tier);
+  const held = subjects.length ? subjects.map(({ layers, motion }) => ({ bounds: layers.bounds, motion, mask: layers.mask && { data: layers.mask, width: layers.width } }))
+    : [{ bounds: parts.bounds ?? layers.bounds, motion, mask: layers.mask && { data: layers.mask, width: layers.width } }].filter(subject => subject.bounds);
+  const auto = autoEdgeFreedom(held, layers, generation), edgeFreedom = parts.edgeFreedom ?? auto;
   const caption = isolation.caption;
   const automatic = subjects.length > 1
     ? buildH3PromptFields({ ...caption, subject: "the subjects" }, `move independently: ${subjects.map(subject =>
@@ -41,9 +48,9 @@ export function resolveInputs(parts: Parts): GenerationInputs | null {
     soundEffects: parts.soundEffects ?? automatic.soundEffects, music: parts.music ?? "" };
   const prompt = parts.rawPrompt == null ? composeH3Prompt(promptFields) : parts.rawPrompt.trim();
   const signature = JSON.stringify([image.id, mask.id, isolation.plate.id,
-    subjects.length ? subjects.map(subject => [subject.id, subject.motion]) : motion, size, parts.lockIn, parts.edgeFreedom, prompt]);
+    subjects.length ? subjects.map(subject => [subject.id, subject.motion]) : motion, size, parts.lockIn, edgeFreedom, prompt]);
   const renderLayers = subjects.length ? { ...layers, subjects: subjects.map(subject => ({ layers: subject.layers, motion: subject.motion })) } : layers;
-  return { image, mask, isolation, motion, layers: renderLayers, subjects, size, lockIn: parts.lockIn, edgeFreedom: parts.edgeFreedom, autoPrompt, promptFields, prompt, signature };
+  return { image, mask, isolation, motion, layers: renderLayers, subjects, size, lockIn: parts.lockIn, edgeFreedom, autoEdgeFreedom: auto, autoPrompt, promptFields, prompt, signature };
 }
 
 export function currentParts(settings: PromptSettings): Parts {

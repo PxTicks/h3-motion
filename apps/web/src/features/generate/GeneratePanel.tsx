@@ -5,7 +5,7 @@ import { useCurrentResult, useGenerateStore, usePromptSettings } from "./useGene
 import { PromptModeToggle } from "../shell/PromptModeToggle";
 
 const LOCK_IN_HELP = "How long the subject is held to your path. Higher values follow the path more tightly, but leave the model less room to blend the cut-out into the scene.";
-const EDGE_FREEDOM_HELP = "How far inside its outline the subject is released from your animation. More freedom lets the model redraw the subject's edges, which helps when part of it is cut off, such as an arm reaching in from off-screen.";
+const EDGE_FREEDOM_HELP = "How far inside its outline the subject is released from your animation. More freedom lets the model redraw the subject's edges, which helps when part of it is cut off, such as an arm reaching in from off-screen. Automatic by default: small subjects get less, so enough of them stays held to follow the path.";
 
 export function GeneratePanel() {
   const lockIn = useGenerateStore(s => s.lockIn);
@@ -28,6 +28,7 @@ export function GeneratePanel() {
   const inputs = useGenerationInputs(usePromptSettings());
   const result = useCurrentResult();
   const busy = status !== "idle";
+  const effectiveEdgeFreedom = inputs?.edgeFreedom ?? edgeFreedom ?? EDGE_FREEDOM.default;
   const statusText = status === "rendering" ? `Rendering motion frames… ${Math.round((progress ?? 0) * 100)}%`
     : status === "uploading" ? "Uploading the motion videos…" : job?.message ?? "Waiting for ComfyUI…";
 
@@ -94,9 +95,13 @@ export function GeneratePanel() {
               <Tooltip title={EDGE_FREEDOM_HELP} placement="top-start">
                 <Typography variant="caption" color="text.secondary" tabIndex={0} sx={{ cursor: "help" }}>Edge freedom ⓘ</Typography>
               </Tooltip>
-              <Typography variant="body2" sx={{ fontVariantNumeric: "tabular-nums" }}>{edgeFreedom} px</Typography>
+              <Stack direction="row" alignItems="center" gap={1}>
+                {edgeFreedom === null ? <Typography variant="caption" color="text.secondary">Auto</Typography>
+                  : <Button size="small" disabled={busy} onClick={() => setEdgeFreedom(null)} sx={{ minWidth: 0, py: 0 }}>Use auto</Button>}
+                <Typography variant="body2" sx={{ fontVariantNumeric: "tabular-nums" }}>{effectiveEdgeFreedom} px</Typography>
+              </Stack>
             </Stack>
-            <Slider value={edgeFreedom} min={EDGE_FREEDOM.min} max={EDGE_FREEDOM.max} step={EDGE_FREEDOM.step} disabled={busy} aria-label="Edge freedom"
+            <Slider value={effectiveEdgeFreedom} min={EDGE_FREEDOM.min} max={EDGE_FREEDOM.max} step={EDGE_FREEDOM.step} disabled={busy} aria-label="Edge freedom"
               onChange={(_, value) => setEdgeFreedom(Array.isArray(value) ? value[0] : value)} />
           </Box>
           <TextField size="small" label="Seed" placeholder="Random" value={seed} disabled={busy} onChange={event => setSeed(event.target.value)}

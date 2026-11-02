@@ -213,12 +213,28 @@ describe("generate guards", () => {
       expect(useGenerateStore.getState().lockIn).toBe(expected);
     }
   });
-  it("defaults edge freedom to 16 px and snaps it to 4 px steps from 0 to 64", () => {
-    expect(useGenerateStore.getState().edgeFreedom).toBe(16);
+  it("defaults edge freedom to automatic and snaps a chosen one to 4 px steps from 0 to 64", () => {
+    expect(useGenerateStore.getState().edgeFreedom).toBeNull();
     for (const [input, expected] of [[-8, 0], [0, 0], [5, 4], [30, 32], [64, 64], [80, 64]]) {
       useGenerateStore.getState().setEdgeFreedom(input);
       expect(useGenerateStore.getState().edgeFreedom).toBe(expected);
     }
+    useGenerateStore.getState().setEdgeFreedom(null);
+    expect(useGenerateStore.getState().edgeFreedom).toBeNull();
+  });
+  it("sends less edge freedom for a small subject unless one is chosen", () => {
+    // The 1728 px photo is drawn at 864 × 480: 400 × 300 px becomes 200 × 150, room for two tokens and the full 16 px.
+    useMotionStore.setState({ bounds: { x: 300, y: 400, width: 400, height: 300 } });
+    expect(resolveInputs(currentParts({ ...settings, edgeFreedom: null }))!.edgeFreedom).toBe(16);
+    // 70 × 70 px holds one token at most, which 8 px still keeps.
+    useMotionStore.setState({ bounds: { x: 300, y: 400, width: 140, height: 140 } });
+    expect(resolveInputs(currentParts({ ...settings, edgeFreedom: null }))!).toMatchObject({ edgeFreedom: 8, autoEdgeFreedom: 8 });
+    expect(resolveInputs(currentParts({ ...settings, edgeFreedom: 24 }))!).toMatchObject({ edgeFreedom: 24, autoEdgeFreedom: 8 });
+  });
+  it("goes back to automatic edge freedom for a new subject", () => {
+    useGenerateStore.getState().setEdgeFreedom(32);
+    useSelectionStore.setState({ mask: { ...mask, id: "2b8e1c55-0a51-4a3e-9d0e-6f3f4a1b2c3d" } });
+    expect(useGenerateStore.getState().edgeFreedom).toBeNull();
   });
   it("refuses a path without movement and an invalid seed before rendering", async () => {
     useMotionStore.setState({ motion: createMotion({ x: 400, y: 500 }) });

@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { captionSchema } from "./description.js";
 import { frameCountSchema, videoDimensionSchema } from "./media.js";
+import type { FrameSize } from "./media.js";
 import { inpaintResultSchema } from "./inpaint.js";
+import { buildMotionCurve, placeRect } from "./motion.js";
+import type { Rect, SubjectMotion } from "./motion.js";
 import { trackResultSchema } from "./tracking.js";
 
 export const pointSchema = z.object({ x: z.number().finite().nonnegative(), y: z.number().finite().nonnegative() });
@@ -44,8 +47,80 @@ export const isolationResultSchema = z.object({
 export type IsolationResult = z.infer<typeof isolationResultSchema>;
 /** TTM's end_step on the six-step turbo schedule: the subject is held to its path until this step. 6 holds every step. */
 export const LOCK_IN = { min: 2, max: 6, step: 1, default: 2 } as const;
-/** How far the held subject mask is eroded before TTM, in generation-canvas pixels. 16 is one H3 latent cell. */
+/** How far the held subject mask is eroded before TTM, in generation-canvas pixels. 16 is one H3 latent cell; by default small subjects get less, see autoEdgeFreedom. */
 export const EDGE_FREEDOM = { min: 0, max: 64, step: 4, default: 16 } as const;
+/**
+ * TTM holds whole H3 tokens, 2 × 2 patches of 16 px latent cells, and only if all four cells are held. Nearest
+ * sampling reads each cell from one pixel, so a token needs two samples 16 px apart on each axis, at 32k and 32k + 16:
+ * any 48 px span has them wherever the grid falls, and two tokens side by side need 80. Windows are [rows, columns].
+ */
+const ONE_TOKEN = [[48, 48]] as const, TWO_TOKENS = [[48, 80], [80, 48]] as const;
+/** A subject to hold: its bounds and path, and its binary mask (non-zero inside) as a `width`-wide raster in the same pixels. */
+export interface HeldSubject { bounds: Rect; motion: SubjectMotion<number>; mask?: { data: Uint8Array | Uint8ClampedArray; width: number } }
+const heldCache = new WeakMap<object, Map<string, number>>();
+
+/**
+ * The edge freedom that still holds two tokens of every subject wherever the token grid falls, or one if the subject
+ * is too small for two, snapped down to the slider's step and capped at the default; 0 if not even one fits.
+ * Subjects are measured by their shape in generation pixels, at their smallest scale over the frames where they are
+ * wholly in view: an edge cutting one off would otherwise pull every subject to 0. Without a mask, the bounds stand in.
+ */
+export function autoEdgeFreedom(subjects: HeldSubject[], layers: FrameSize, generation: FrameSize): number {
+  const kx = generation.width / layers.width, ky = generation.height / layers.height;
+  let result: number = EDGE_FREEDOM.default;
+  for (const subject of subjects) {
+    const { bounds, motion } = subject, curve = buildMotionCurve(motion);
+    let sx = Infinity, sy = Infinity;
+    for (let frame = 0; frame < motion.frames; frame++) {
+      const placement = curve.placementAt(frame), { x, y, width, height } = placeRect(bounds, placement);
+      if (x < 0 || y < 0 || x + width > layers.width || y + height > layers.height) continue;
+      sx = Math.min(sx, Math.abs(placement.sx)); sy = Math.min(sy, Math.abs(placement.sy));
+    }
+    if (Number.isFinite(sx)) result = Math.min(result, heldEdgeFreedom(subject, Math.round(bounds.width * kx * sx), Math.round(bounds.height * ky * sy)));
+  }
+  return result;
+}
+
+/** autoEdgeFreedom for one subject drawn `width` × `height`, cached per mask: prompt edits re-resolve the inputs. */
+function heldEdgeFreedom({ bounds, mask }: HeldSubject, width: number, height: number): number {
+  const key = `${bounds.x},${bounds.y},${bounds.width},${bounds.height}:${width}x${height}`;
+  const cached = mask && heldCache.get(mask.data)?.get(key);
+  if (cached !== undefined) return cached;
+  // City-block distance to the nearest pixel outside the subject: the tapered GrowMask's 3 × 3 cross erodes one step of
+  // it per pixel of edge freedom, so a pixel survives e px of edge freedom if its depth is above e.
+  const depth = new Uint16Array(width * height);
+  for (let y = 0; y < height; y++) {
+    const row = Math.floor(bounds.y + (y + .5) * bounds.height / height) * (mask?.width ?? 0);
+    for (let x = 0; x < width; x++) depth[y * width + x] = !mask || mask.data[row + Math.floor(bounds.x + (x + .5) * bounds.width / width)] ? 1 : 0;
+  }
+  for (let y = 0, i = 0; y < height; y++) for (let x = 0; x < width; x++, i++)
+    if (depth[i]) depth[i] = 1 + Math.min(y ? depth[i - width] : 0, x ? depth[i - 1] : 0);
+  for (let y = height - 1, i = depth.length - 1; y >= 0; y--) for (let x = width - 1; x >= 0; x--, i--)
+    if (depth[i]) depth[i] = Math.min(depth[i], 1 + Math.min(y < height - 1 ? depth[i + width] : 0, x < width - 1 ? depth[i + 1] : 0));
+  /** How many tokens survive e px of edge freedom wherever the grid falls: 2, 1 or 0. */
+  const tokens = (e: number) => {
+    // A summed-area table of the surviving pixels finds a window they fill.
+    const stride = width + 1, sums = new Uint32Array(stride * (height + 1));
+    for (let y = 0; y < height; y++) for (let x = 0, run = 0; x < width; x++) {
+      run += depth[y * width + x] > e ? 1 : 0;
+      sums[(y + 1) * stride + x + 1] = sums[y * stride + x + 1] + run;
+    }
+    const fills = ([rows, columns]: readonly [number, number]) => {
+      for (let y = rows; y <= height; y++) for (let x = columns; x <= width; x++)
+        if (sums[y * stride + x] - sums[(y - rows) * stride + x] - sums[y * stride + x - columns] + sums[(y - rows) * stride + x - columns] === rows * columns) return true;
+      return false;
+    };
+    return TWO_TOKENS.some(fills) ? 2 : ONE_TOKEN.some(fills) ? 1 : 0;
+  };
+  const target = tokens(EDGE_FREEDOM.min);
+  let result: number = EDGE_FREEDOM.min;
+  if (target) for (let e: number = EDGE_FREEDOM.default; e > EDGE_FREEDOM.min; e -= EDGE_FREEDOM.step) if (tokens(e) >= target) { result = e; break; }
+  if (mask) {
+    const entries = heldCache.get(mask.data) ?? new Map<string, number>();
+    heldCache.set(mask.data, entries.set(key, result));
+  }
+  return result;
+}
 const dimensionSchema = videoDimensionSchema;
 const seedSchema = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 /** Sent as the `request` field of a multipart upload alongside the reference, mask and start-frame files. */

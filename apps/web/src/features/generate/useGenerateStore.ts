@@ -13,7 +13,9 @@ export type GenerateStatus = "idle" | "rendering" | "uploading" | "generating";
 export interface GeneratedVideo extends AnimationResult { signature: string }
 
 interface GenerateState {
-  lockIn: number; edgeFreedom: number; tier: Tier; seed: string; prompt: string | null;
+  lockIn: number; tier: Tier;
+  /** Null until the user picks one, so it follows the subject's size. */
+  edgeFreedom: number | null; seed: string; prompt: string | null;
   soundEffects: string | null; music: string;
   /** In raw mode `rawPrompt` is sent as written; the fields keep the formatted prompt it started from. */
   promptMode: PromptMode; rawPrompt: string;
@@ -21,7 +23,7 @@ interface GenerateState {
   unformattable: boolean;
   status: GenerateStatus; progress: number | null; job: JobSnapshot | null;
   result: GeneratedVideo | null; view: "source" | "result"; error: string | null; notice: string | null;
-  setLockIn: (lockIn: number) => void; setEdgeFreedom: (edgeFreedom: number) => void; setTier: (tier: Tier) => void; setSeed: (seed: string) => void;
+  setLockIn: (lockIn: number) => void; setEdgeFreedom: (edgeFreedom: number | null) => void; setTier: (tier: Tier) => void; setSeed: (seed: string) => void;
   /** null follows the generated main prompt or sound effects. */
   setPrompt: (prompt: string | null) => void;
   setSoundEffects: (soundEffects: string | null) => void; setMusic: (music: string) => void;
@@ -51,11 +53,11 @@ const message = (error: unknown) => error instanceof Error ? error.message : "So
 let controller: AbortController | null = null;
 
 export const useGenerateStore = create<GenerateState>((set, get) => ({
-  lockIn: LOCK_IN.default, edgeFreedom: EDGE_FREEDOM.default, tier: 768, seed: "", prompt: null, soundEffects: null, music: "",
+  lockIn: LOCK_IN.default, edgeFreedom: null, tier: 768, seed: "", prompt: null, soundEffects: null, music: "",
   promptMode: "formatted", rawPrompt: "", unformattable: false,
   status: "idle", progress: null, job: null, result: null, view: "source", error: null, notice: null,
   setLockIn: lockIn => set({ lockIn: Math.min(LOCK_IN.max, Math.max(LOCK_IN.min, Math.round(lockIn / LOCK_IN.step) * LOCK_IN.step)) }),
-  setEdgeFreedom: edgeFreedom => set({ edgeFreedom: Math.min(EDGE_FREEDOM.max, Math.max(EDGE_FREEDOM.min, Math.round(edgeFreedom / EDGE_FREEDOM.step) * EDGE_FREEDOM.step)) }),
+  setEdgeFreedom: edgeFreedom => set({ edgeFreedom: edgeFreedom === null ? null : Math.min(EDGE_FREEDOM.max, Math.max(EDGE_FREEDOM.min, Math.round(edgeFreedom / EDGE_FREEDOM.step) * EDGE_FREEDOM.step)) }),
   setTier: tier => set({ tier }),
   setSeed: seed => set({ seed }),
   setPrompt: prompt => set({ prompt }),
@@ -139,6 +141,8 @@ export const useGenerateStore = create<GenerateState>((set, get) => ({
 useSelectionStore.subscribe((state, previous) => {
   if (state.image?.id !== previous.image?.id)
     useGenerateStore.setState({ prompt: null, soundEffects: null, music: "", promptMode: "formatted", rawPrompt: "", unformattable: false });
+  // A chosen edge freedom suits one subject's size; a new subject goes back to the automatic one.
+  if (state.image?.id !== previous.image?.id || state.mask?.id !== previous.mask?.id) useGenerateStore.setState({ edgeFreedom: null });
 });
 
 /** The last result, if it was made for the current photo, selection and background. */
