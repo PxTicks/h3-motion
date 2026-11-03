@@ -19,7 +19,7 @@ partner nodes or closed APIs.
   source, keeping, referencing or replacing the original sound.
 
 See [docs/usage.md](docs/usage.md) for the full walkthrough and
-[docs/how-it-works.md](docs/how-it-works.md) for the pipeline.
+[docs/how-it-works.md](docs/how-it-works.md) for the pipeline. Created as part of the [#opensourcehiggsfield](https://comfy.org/open-source-higgsfield) competition.
 
 ## Screenshots
 
