@@ -63,7 +63,7 @@ export function GeneratePanel({ example = false }: { example?: boolean }) {
       <LinearProgress variant={progress == null ? "indeterminate" : "determinate"} value={(progress ?? 0) * 100} />
       <Typography variant="caption" color="text.secondary">Generation usually takes several minutes. Keep this tab open.</Typography>
       <Button onClick={() => void cancel()}>Cancel</Button>
-    </Stack> : <ExampleHint active={showGenerateHint} descriptionId={generateHintId} message="click me!"
+    </Stack> : <ExampleHint active={showGenerateHint} descriptionId={generateHintId} message="Click me!"
       onDismiss={() => setGenerateHintDismissed(true)} dim={false} reserveSpace pill>
       <Button variant="contained" size="large" fullWidth disabled={!inputs?.prompt}
         aria-describedby={showGenerateHint ? generateHintId : undefined} onClick={() => {

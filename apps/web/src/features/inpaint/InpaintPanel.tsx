@@ -199,7 +199,7 @@ export function InpaintPanel({ example = false }: { example?: boolean }) {
         onChange={event => s.setRawPrompt(event.target.value)} slotProps={{ htmlInput: { maxLength: 8000 } }}
         helperText="Sent as written, so changing the reference or original sound doesn't change it." />
       : <ExampleHint active={showPromptHint} descriptionId={promptHintId} reserveSpace dim={false}
-        message="The example prompt is filled in." onDismiss={() => setPromptHintDismissed(true)}>
+        message="Try this example prompt." onDismiss={() => setPromptHintDismissed(true)}>
         <TextField label="Main prompt" multiline minRows={6} fullWidth value={s.prompt} disabled={busy}
           onChange={event => { setPromptHintDismissed(true); s.setPrompt(event.target.value); }}
           slotProps={{ htmlInput: { maxLength: 4000, "aria-describedby": showPromptHint ? promptHintId : undefined } }}
@@ -216,7 +216,7 @@ export function InpaintPanel({ example = false }: { example?: boolean }) {
         <Typography variant="body2">{s.status === "preparing" ? "Preparing video and mask…" : s.status === "uploading" ? "Uploading…" : s.job?.message ?? "Inpainting…"}</Typography>
         <LinearProgress variant={s.progress === null ? "indeterminate" : "determinate"} value={(s.progress ?? 0) * 100} />
         <Button onClick={() => void s.cancel()}>Cancel</Button>
-      </Stack> : <ExampleHint active={showGenerateHint} descriptionId={generateHintId} message="click me" reserveSpace pill dim={false}
+      </Stack> : <ExampleHint active={showGenerateHint} descriptionId={generateHintId} message="Click me!" reserveSpace pill dim={false}
         onDismiss={() => setGenerateHintDismissed(true)}>
         <Button variant="contained" size="large" fullWidth disabled={busy || !inpaintPrompt(s)}
           aria-describedby={showGenerateHint ? generateHintId : undefined} onClick={() => {

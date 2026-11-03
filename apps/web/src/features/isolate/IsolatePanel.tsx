@@ -42,7 +42,7 @@ export function IsolatePanel({ example = false }: { example?: boolean }) {
       <Typography variant="caption" color="text.secondary">{job?.stage === "describe" ? "Identifying the subject" : "Creating the background"} · This can take a few minutes.</Typography>
       {job && <Button onClick={() => void cancel()}>Cancel isolation</Button>}
     </Stack>}
-    <ExampleHint active={showHint} descriptionId={hintId} message="click me!" onDismiss={() => setHintDismissed(true)} pill>
+    <ExampleHint active={showHint} descriptionId={hintId} message="Click me!" onDismiss={() => setHintDismissed(true)} pill>
       <Button variant={result ? "outlined" : "contained"} size="large" fullWidth disabled={busy}
         aria-describedby={showHint ? hintId : undefined} onClick={() => {
           setHintDismissed(true);
